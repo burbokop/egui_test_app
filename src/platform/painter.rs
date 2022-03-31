@@ -251,15 +251,30 @@ impl Painter {
         (width_in_pixels, height_in_pixels)
     } */
 
+    pub fn emath_pos_to_iv_vec(pos: emath::Pos2) -> inkview::VecI32 {
+        inkview::VecI32 { x: pos.x as i32, y: pos.y as i32 }
+    }
+
+    pub fn emath_rect_to_iv(rect: emath::Rect) -> inkview::Rect {
+        inkview::Rect { pos: Self::emath_pos_to_iv_vec(rect.min), size: inkview::VecUSize { x: (rect.max.x - rect.min.x) as usize, y: (rect.max.y - rect.min.y) as usize } }
+    }
+
+    pub fn epaint_color_to_iv(color: epaint::Color32) -> inkview::Color32 {
+        inkview::Color32::rgb(color.r(), color.g(), color.b())
+    }
+
     pub fn paint_shape(&mut self, shape: ClippedShape) {
         match shape.1 {
             egui::Shape::Noop => todo!(),
             egui::Shape::Vec(_) => todo!(),
-            egui::Shape::Circle(circle) => todo!(),
+            egui::Shape::Circle(circle) => inkview::draw_circle(Painter::emath_pos_to_iv_vec(circle.center), circle.radius as i32, Self::epaint_color_to_iv(circle.fill)),
             egui::Shape::LineSegment { points, stroke } => todo!(),
             egui::Shape::Path(path) => todo!(),
-            egui::Shape::Rect(rect) => todo!(),
-            egui::Shape::Text(text) => todo!(),
+            egui::Shape::Rect(rect) => inkview::fill_area(Self::emath_rect_to_iv(rect.rect), Self::epaint_color_to_iv(rect.fill)),
+            egui::Shape::Text(text) => {
+                inkview::set
+                inkview::draw_string(Self::emath_pos_to_iv_vec(text.pos), "null str");
+            },
             egui::Shape::Mesh(_) => todo!(),
             egui::Shape::QuadraticBezier(_) => todo!(),
             egui::Shape::CubicBezier(_) => todo!(),
@@ -322,9 +337,11 @@ impl Painter {
         }
 
         for s in clipped_shapes {
-            println!("\tshape: {:?}", s);
+            //println!("\tshape: {:?}");
             self.paint_shape(s)
         }
+
+        inkview::full_update(inkview::FullSoftUpdateType::Normal(inkview::update_type::Normal))
 
         //self.paint_meshes(gl, inner_size, pixels_per_point, clipped_meshes);
 

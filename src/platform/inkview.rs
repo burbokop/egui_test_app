@@ -28,7 +28,8 @@
 //}
 
 use std::ffi::CStr;
-use std::{os::raw::{c_int, c_char, c_uint}, ffi::{c_void}, mem, fmt::Debug};
+use std::{os::raw::{c_int, c_char, c_uint, c_uchar, c_ushort}, ffi::{c_void}, mem, fmt::Debug};
+use egui::Vec2;
 use num_enum::{TryFromPrimitive};
 
 
@@ -54,6 +55,25 @@ struct c_canvas {
     clipy1: c_int,
     clipy2: c_int,
     addr: *mut u8,
+}
+
+
+#[repr(C)]
+struct c_ifont {
+    name: *mut c_char,
+    family: *mut c_char,
+    size: c_int,
+    aa: c_uchar,
+    isbold: c_uchar,
+    isitalic: c_uchar,
+    _r1: c_uchar,
+    charset: c_ushort,
+    _r2: c_ushort,
+    color: c_int,
+    height: c_int,
+    linespacing: c_int,
+    baseline: c_int,
+    fdata: *mut c_void,
 }
 
 extern "C" {
@@ -98,6 +118,9 @@ extern "C" {
     fn DrawRect(x: c_int, y: c_int, w: c_int, h: c_int, color: c_int);
 
     fn DrawFrameCertifiedEx(x: c_int, y: c_int, w: c_int, h: c_int, /*enum edef_thickness*/thickness: c_int, /*eside*/sides: c_int, /*enum estyle*/direction: c_int, radius: c_int, color: c_int, bg_color: c_int);
+
+    fn OpenFont(name: *const c_char, size: c_int, aa: c_int) -> *mut c_ifont;
+    fn SetFont(font: *const c_ifont, color: c_int);
 
     fn DrawString(x: c_int, y: c_int, s: *const c_char);
     fn DrawStringR(x: c_int, y: c_int, s: *const c_char);
@@ -422,4 +445,97 @@ pub fn dynamic_update(tp: DynamicUpdateType, x: usize, y: usize, w: usize, h: us
         DynamicUpdateType::Normal(_) => unsafe { DynamicUpdate(x as c_int, y as c_int, w as c_int, h as c_int) },
         DynamicUpdateType::BW(_) => unsafe { DynamicUpdateBW(x as c_int, y as c_int, w as c_int, h as c_int) },
     }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct Color32(pub u32);
+
+impl Color32 {
+    pub const fn rgb(red: u8, green: u8, blue: u8) -> Self {
+        Self(((blue as u32) << 16) + ((green as u32) << 8) + red as u32)
+    }
+}
+
+pub fn draw_circle(position: VecI32, radius: i32, color: Color32) {
+    unsafe { DrawCircle(position.x, position.y, radius, color.0 as c_int) }
+}
+
+pub fn fill_area(rect: Rect, color: Color32) {
+    unsafe { FillArea(rect.pos.x, rect.pos.y, rect.size.x as c_int, rect.size.y as c_int, color.0 as c_int) }
+}
+
+pub fn draw_pixel(x: c_int, y: c_int, color: c_int) {
+
+}
+
+pub fn draw_line(x1: c_int, y1: c_int, x2: c_int, y2: c_int, color: c_int) {
+
+}
+
+pub fn draw_line_ex(x1: c_int, y1: c_int, x2: c_int, y2: c_int, color: c_int, step: c_int) {
+
+}
+
+pub fn draw_dash_line(x1: c_int, y1: c_int, x2: c_int, y2: c_int, color: c_int, fill: c_uint, space: c_uint) {
+
+}
+
+pub fn draw_rect(rect: Rect, color: Color32) {
+    unsafe { DrawRect(rect.pos.x, rect.pos.y, rect.size.x as c_int, rect.size.y as c_int, color.0 as c_int) }
+}
+
+pub fn draw_frame_certified_ex(x: c_int, y: c_int, w: c_int, h: c_int, /*enum edef_thickness*/thickness: c_int, /*eside*/sides: c_int, /*enum estyle*/direction: c_int, radius: c_int, color: c_int, bg_color: c_int) {
+
+}
+
+pub struct Font<'a> {
+    pub name: &'a str,
+    pub family: &'a str,
+    pub size: usize,
+    pub aa: u8,
+    pub isbold: bool,
+    pub isitalic: bool,
+    pub _r1: u8,
+    pub charset: u16,
+    pub _r2: u16,
+    pub color: Color32,
+    pub height: usize,
+    pub linespacing: usize,
+    pub baseline: usize,
+
+    pub(crate) c_data: *mut c_ifont
+}
+
+fn open_font(name: &str, size: usize, aa: u8) -> Font<'static> {
+    let font = unsafe { &mut*OpenFont(name.as_ptr() as *const c_char, size as c_int, aa as c_int) };
+
+    Font { name: font.name, family: (), size: (), aa: (), isbold: (), isitalic: (), _r1: (), charset: (), _r2: (), color: (), height: (), linespacing: (), baseline: (), c_data: () }
+}
+
+fn set_font(font: &Font<'_>, color: c_int) {
+
+}
+
+pub fn draw_string(pos: VecI32, s: &str) {
+    unsafe { DrawString(pos.x, pos.y, s.as_ptr() as *const c_char) }
+}
+
+pub fn draw_string_r(x: c_int, y: c_int, s: *const c_char) {
+
+}
+
+pub fn text_rect_height(width: usize, s: &str, flags: i32) -> c_int {
+    unsafe { TextRectHeight(width as c_int, s .as_ptr() as *const c_char, flags) }
+}
+
+pub fn text_rect_height_ex(size: VecUSize, s: &str, flags: i32) -> c_int {
+    unsafe { TextRectHeightEx(size.x as c_int, size.y as c_int, s.as_ptr() as *const c_char, flags) }
+}
+
+pub fn minimal_text_rect_width(w: usize, s: &str) -> usize {
+    unsafe { MinimalTextRectWidth(w as c_int, s.as_ptr() as *const c_char) as usize }
+}
+
+pub fn draw_text_rect(rect: Rect, s: &str, flags: i32) -> &str {
+    unsafe { CStr::from_ptr(DrawTextRect(rect.pos.x, rect.pos.y, rect.size.x as c_int, rect.size.y as c_int, s.as_ptr() as *const c_char, flags)).to_str().unwrap() }
 }
