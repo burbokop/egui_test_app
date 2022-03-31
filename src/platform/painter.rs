@@ -263,7 +263,7 @@ impl Painter {
         inkview::Color32::rgb(color.r(), color.g(), color.b())
     }
 
-    pub fn paint_shape(&mut self, shape: ClippedShape) {
+    pub fn paint_shape<'f>(&mut self, shape: ClippedShape, font: &inkview::Font<'f>) {
         match shape.1 {
             egui::Shape::Noop => todo!(),
             egui::Shape::Vec(_) => todo!(),
@@ -272,8 +272,11 @@ impl Painter {
             egui::Shape::Path(path) => todo!(),
             egui::Shape::Rect(rect) => inkview::fill_area(Self::emath_rect_to_iv(rect.rect), Self::epaint_color_to_iv(rect.fill)),
             egui::Shape::Text(text) => {
-                inkview::set
-                inkview::draw_string(Self::emath_pos_to_iv_vec(text.pos), "null str");
+
+                let str = &text.galley.as_ref().job.as_ref().text;
+
+                inkview::set_font(font, Self::epaint_color_to_iv(text.override_text_color.unwrap_or(Color32::from_rgb(255, 255, 255))));
+                inkview::draw_string(Self::emath_pos_to_iv_vec(text.pos), str.as_str());
             },
             egui::Shape::Mesh(_) => todo!(),
             egui::Shape::QuadraticBezier(_) => todo!(),
@@ -282,11 +285,12 @@ impl Painter {
     }
 
     
-    pub fn paint_and_update_textures(
+    pub fn paint_and_update_textures<'f>(
         &mut self,
         clipped_shapes: Vec<epaint::ClippedShape>,
         textures_delta: &egui::TexturesDelta,
         canvas: &mut inkview::Canvas<'_>,
+        font: &inkview::Font<'f>
     ) {
 
         for (id, image_delta) in &textures_delta.set {
@@ -338,7 +342,7 @@ impl Painter {
 
         for s in clipped_shapes {
             //println!("\tshape: {:?}");
-            self.paint_shape(s)
+            self.paint_shape(s, font)
         }
 
         inkview::full_update(inkview::FullSoftUpdateType::Normal(inkview::update_type::Normal))

@@ -59,7 +59,7 @@ struct c_canvas {
 
 
 #[repr(C)]
-struct c_ifont {
+pub(crate) struct c_ifont {
     name: *mut c_char,
     family: *mut c_char,
     size: c_int,
@@ -118,6 +118,8 @@ extern "C" {
     fn DrawRect(x: c_int, y: c_int, w: c_int, h: c_int, color: c_int);
 
     fn DrawFrameCertifiedEx(x: c_int, y: c_int, w: c_int, h: c_int, /*enum edef_thickness*/thickness: c_int, /*eside*/sides: c_int, /*enum estyle*/direction: c_int, radius: c_int, color: c_int, bg_color: c_int);
+
+    fn iv_get_default_font(fonttype: c_int) -> *mut c_char;
 
     fn OpenFont(name: *const c_char, size: c_int, aa: c_int) -> *mut c_ifont;
     fn SetFont(font: *const c_ifont, color: c_int);
@@ -506,14 +508,44 @@ pub struct Font<'a> {
     pub(crate) c_data: *mut c_ifont
 }
 
-fn open_font(name: &str, size: usize, aa: u8) -> Font<'static> {
-    let font = unsafe { &mut*OpenFont(name.as_ptr() as *const c_char, size as c_int, aa as c_int) };
-
-    Font { name: font.name, family: (), size: (), aa: (), isbold: (), isitalic: (), _r1: (), charset: (), _r2: (), color: (), height: (), linespacing: (), baseline: (), c_data: () }
+// DEFAULT FONTS
+pub enum FontType {
+    Std = 0,
+    Bold = 1,
+    Italic = 2,
+    Bolditalic = 3,
+    Mono = 4,
+    Family = 5,
 }
 
-fn set_font(font: &Font<'_>, color: c_int) {
+pub fn get_default_font(fonttype: FontType) -> &'static str {
+    unsafe { CStr::from_ptr(iv_get_default_font(fonttype as c_int)).to_str().unwrap() }
+}
 
+pub fn open_font(name: &str, size: usize, aa: u8) -> Font<'static> {
+    unsafe { 
+        let font = &mut*OpenFont(name.as_ptr() as *const c_char, size as c_int, aa as c_int);
+        Font { 
+            name: CStr::from_ptr(font.name).to_str().unwrap(), 
+            family: CStr::from_ptr(font.family).to_str().unwrap(), 
+            size: font.size as usize, 
+            aa: font.aa, 
+            isbold: font.isbold > 0, 
+            isitalic: font.isitalic > 0, 
+            _r1: font._r1, 
+            charset: font.charset, 
+            _r2: font._r2, 
+            color: Color32(font.color as u32), 
+            height: font.height as usize, 
+            linespacing: font.linespacing as usize, 
+            baseline: font.baseline as usize, 
+            c_data: font
+        }
+    }
+}
+
+pub fn set_font(font: &Font<'_>, color: Color32) {
+    unsafe { SetFont(font.c_data, color.0 as c_int) }
 }
 
 pub fn draw_string(pos: VecI32, s: &str) {

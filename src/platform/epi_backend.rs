@@ -48,6 +48,7 @@ pub fn run<A: epi::App>(app: Box<A>, native_options: &epi::NativeOptions) -> ! {
 
     let mut painter = Painter::new().unwrap();
 
+    let font = inkview::open_font(inkview::get_default_font(inkview::FontType::Std), 30, 1);
     
 
     loop {
@@ -61,7 +62,7 @@ pub fn run<A: epi::App>(app: Box<A>, native_options: &epi::NativeOptions) -> ! {
 
         if needs_repaint {
 
-            painter.paint_and_update_textures(shapes, &textures_delta, &mut canvas);
+            painter.paint_and_update_textures(shapes, &textures_delta, &mut canvas, &font);
 
 /*
             for (id, image_delta) in &textures_delta.set {
