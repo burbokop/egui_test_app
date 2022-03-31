@@ -1,14 +1,13 @@
 
-use std::convert::identity;
 
-use egui::{ClippedMesh, Color32};
+use std::ops::DerefMut;
+
+use egui::{ClippedMesh};
 use epaint::ClippedShape;
 use epi;
 
+use super::painter::Painter;
 
-use crate::platform::painter::{Painter};
-
-use super::inkview;
 
 pub fn create_storage(_app_name: &str) -> Option<Box<dyn epi::Storage>> {
     None
@@ -30,39 +29,46 @@ pub fn run_native<A: epi::App>(app: Box<A>, native_options: epi::NativeOptions) 
     let mut integration = super::epi_integration::EpiIntegration::new(None);
 
 
-    inkview::prepare_for_loop(|event| -> bool {
-        println!("event: {:?}", event);
-        true
-    });
+    let sdl_context = sdl2::init().unwrap();
+    let video_subsystem = sdl_context.video().unwrap();
+ 
+    let w = 800;
+    let h = 600;
 
+    let window = video_subsystem.window("rust-sdl2 demo", w, h)
+        .position_centered()
+        .build()
+        .unwrap();
+ 
+    let mut canvas = window.into_canvas().build().unwrap();
+ 
+    canvas.set_draw_color(sdl2::pixels::Color::RGB(0, 255, 255));
+    canvas.clear();
+    canvas.present();
+    let mut event_pump = sdl_context.event_pump().unwrap();
 
-
-    let mut canvas = inkview::get_canvas();
-
-    println!("screen size: {{ {}, {} }}", inkview::screen_width().unwrap(), inkview::screen_height().unwrap());
-
-    println!("canvas: {:?}", canvas);
-
-
-    //&mut canvas, 1., ShaderVersion::Default
 
     let mut painter = Painter::new().unwrap();
-
-    let font = inkview::open_font(inkview::get_default_font(inkview::FontType::Std), 30, 1);
     
 
     loop {
+        for event in event_pump.poll_iter() {
+            integration.on_event(app_mut.deref_mut(), &event)
+        }
+
+
+
         let egui::FullOutput {
             platform_output,
             needs_repaint,
             textures_delta,
             shapes,
-        } = integration.update(app_mut.as_mut());
+        } = integration.update(app_mut.as_mut(), w, h);
 
 
         if needs_repaint {
 
-            painter.paint_and_update_textures(shapes, &textures_delta, &mut canvas, &font);
+            painter.paint_and_update_textures(shapes, &textures_delta, &mut canvas);
 
 /*
             for (id, image_delta) in &textures_delta.set {
@@ -89,7 +95,6 @@ pub fn run_native<A: epi::App>(app: Box<A>, native_options: epi::NativeOptions) 
 
         println!("needs_repaint: {:?}", needs_repaint);
 
-        inkview::process_event_loop();
         std::thread::sleep(std::time::Duration::from_millis(100));
     }
     //inkview::clear_on_exit()

@@ -1,6 +1,5 @@
 use epi::backend::{FrameData, RepaintSignal};
 
-use super::inkview;
 
 pub struct EpiIntegration {
     pub frame: epi::Frame,
@@ -72,7 +71,7 @@ impl EpiIntegration {
             info: epi::IntegrationInfo {
                 name: "iv_integration",
                 web_info: None,
-                prefer_dark_mode: None,
+                prefer_dark_mode: Some(false),
                 cpu_usage: None,
                 native_pixels_per_point: Some(1.),
             },
@@ -118,19 +117,20 @@ impl EpiIntegration {
     }
 
     
-    pub fn on_event(&mut self, app: &mut dyn epi::App, event: &inkview::Event) {
-        match event.event_type {
-            inkview::EventType::Exit => self.quit = app.on_exit_event(),
-            inkview::EventType::PointerDown => self.can_drag_window = true,
+    pub fn on_event(&mut self, app: &mut dyn epi::App, event: &sdl2::event::Event) {
+        match event {
+            sdl2::event::Event::Quit { timestamp } => { if app.on_exit_event() { std::process::exit(0) } },
+            sdl2::event::Event::MouseButtonDown { timestamp, window_id, which, mouse_btn, clicks, x, y } => self.can_drag_window = true,
             _ => {}
         }
-
         //self.egui_winit.on_event(&self.egui_ctx, event);
     }
 
     pub fn update(
         &mut self,
         app: &mut dyn epi::App,
+        w: u32,
+        h: u32
     ) -> egui::FullOutput {
         //let frame_start = instant::Instant::now();
 
@@ -138,7 +138,7 @@ impl EpiIntegration {
         let raw_input = egui::RawInput { 
             screen_rect: Some(egui::Rect::from_min_size(
                 Default::default(), 
-                emath::Vec2::new(inkview::screen_width().unwrap() as f32, inkview::screen_width().unwrap() as f32)
+                emath::Vec2::new(w as f32, h as f32)
             )),            
             ..Default::default() 
         };

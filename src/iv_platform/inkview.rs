@@ -28,7 +28,7 @@
 //}
 
 use std::ffi::CStr;
-use std::{os::raw::{c_int, c_char, c_uint, c_uchar, c_ushort}, ffi::{c_void}, mem, fmt::Debug};
+use std::{os::raw::{c_int, c_char, c_uint, c_uchar, c_ushort, c_double}, ffi::{c_void}, mem, fmt::Debug};
 use egui::Vec2;
 use num_enum::{TryFromPrimitive};
 
@@ -81,6 +81,7 @@ extern "C" {
     //taskinfo *GetTaskInfo(pid: std::os::raw::c_int);
 
     fn PrepareForLoop(event_handler: Option<extern "C" fn(c_int, c_int, c_int) -> c_int>);
+    fn PrepareForLoopEx(ctx: *mut c_void, event_handler: Option<extern "C" fn(*mut c_void, c_int, c_int, c_int) -> c_int>);
     fn ProcessEventLoop();
     fn ClearOnExit();
 
@@ -93,6 +94,8 @@ extern "C" {
 
     fn SetHardTimerEx(name: *const c_char, tproc: Option<extern "C" fn(*mut c_void) -> ()>, context: *mut c_void, ms: c_int);
 
+    fn get_screen_dpi() -> c_int;
+    fn get_screen_scale_factor() -> c_double;
 
     fn GetCanvas() -> *mut c_canvas;
 
@@ -109,6 +112,9 @@ extern "C" {
     fn DynamicUpdateBW(x: c_int, y: c_int, w: c_int, h: c_int);
 
     fn DrawCircle(x0: c_int, y0: c_int, radius: c_int, color: c_int);
+
+    fn DrawCircleQuarter(x0: c_int, y0: c_int, radius: c_int, direction: c_int /* enum estyle */, thickness: c_int, color: c_int, bg_color: c_int);
+
     fn FillArea(x: c_int, y: c_int, w: c_int, h: c_int, color: c_int);
 
     fn DrawPixel(x: c_int, y: c_int, color: c_int);
@@ -288,7 +294,6 @@ pub struct Event {
     pub key: u8,
 }
 
-
 extern "C" fn event_handler(arg0: c_int, arg1: c_int, _: c_int) -> c_int {
     if let Some(f) = unsafe { &mut EVENT_HANDLER_CONTEXT } {
         f(Event { event_type: EventType::try_from(arg0).unwrap(), key: arg1 as u8 }).into()
@@ -309,6 +314,30 @@ pub fn prepare_for_loop<F: 'static + FnMut(Event) -> bool>(f: F) {
     }
 }
 
+
+extern "C" fn prepare_for_loop_ex_handler(ctx: *mut c_void, arg0: c_int, arg1: c_int, _: c_int) -> c_int {
+    println!("AAAAAAAAAAAAA");
+    //let closure: &mut &mut dyn FnMut(Event) -> bool = unsafe { mem::transmute(ctx) };
+    //closure(Event { event_type: EventType::try_from(arg0).unwrap(), key: arg1 as u8 }) as c_int
+
+    let closure: &mut Box<dyn FnMut(Event) -> bool> = unsafe { mem::transmute(ctx) };
+    closure(Event { event_type: EventType::try_from(arg0).unwrap(), key: arg1 as u8 }) as c_int
+}
+
+pub fn prepare_for_loop_ex<F: FnMut(Event) -> bool /* true if accepted */>(f: F) {
+    //let mut f_mut = f;
+    //let mut cb: &mut dyn FnMut(Event) -> bool = &mut f_mut;
+    //let cb = &mut cb;
+
+    let cb: Box<Box<dyn FnMut(Event) -> bool>> = Box::new(Box::new(f));
+ 
+    //unsafe { PrepareForLoopEx(cb as *mut _ as *mut c_void, Some(prepare_for_loop_ex_handler)) }
+
+    unsafe { PrepareForLoopEx(Box::into_raw(cb) as *mut _, Some(prepare_for_loop_ex_handler)) }
+
+    
+}
+
 pub fn process_event_loop() { unsafe { ProcessEventLoop() } }
 pub fn clear_on_exit() { unsafe { EVENT_HANDLER_CONTEXT = None; ClearOnExit() } }
 
@@ -320,7 +349,9 @@ extern "C" fn set_hard_timer_handler(ctx: *mut c_void) {
     closure()
 }
 
-pub fn set_hard_timer<F: 'static + FnMut()>(name: &str, f: F, ms: u32) {
+pub fn set_hard_timer<F: FnMut()>(name: &str, f: F, ms: u32) {
+    println!("OOOOOOOOOOOOOOOOOOO");
+
     let mut f_mut = f;
     let mut cb: &mut dyn FnMut() = &mut f_mut;
     let cb = &mut cb;
@@ -367,6 +398,56 @@ impl<'a> Debug for Canvas<'a> {
             .field("pixels", &String::from(format!("[row data (len: {})]", &self.pixels.len())))
             .finish()
     }
+}
+
+use bitflags::bitflags;
+
+bitflags! {
+    pub struct Style: u16 {
+        const ROUND_NONE = 0;
+        const ROUND_TOP_LEFT = 1;
+        const ROUND_TOP_RIGHT = 2;
+        const ROUND_BOTTOM_LEFT = 4;
+        const ROUND_BOTTOM_RIGHT = 8;
+        const ROUND_TOP = Self::ROUND_TOP_LEFT.bits | Self::ROUND_TOP_RIGHT.bits; // 3
+        const ROUND_DOWN = Self::ROUND_BOTTOM_LEFT.bits | Self::ROUND_BOTTOM_RIGHT.bits; // 12
+        const ROUND_LEFT = Self::ROUND_TOP_LEFT.bits | Self::ROUND_BOTTOM_LEFT.bits; // 5
+        const ROUND_RIGHT = Self::ROUND_TOP_RIGHT.bits | Self::ROUND_BOTTOM_RIGHT.bits; // 10
+        const ROUND_ALL_SIDES = Self::ROUND_TOP.bits | Self::ROUND_DOWN.bits; // 15
+        // fill
+        const FILL_INSIDE = 16;
+        const FILL_OUTSIDE_BG = 32;
+        // blend
+        const BLEND_SRC_INSIDE = 64; // blend with source
+        const BLEND_SRC_OUTSIDE = 128; // blend with source
+        const DRAW_CIRCLE_BLACK_WHITE = 256; // draw all circle pixels black or white
+    }
+}
+
+impl Default for Style {
+    fn default() -> Self { Self::ROUND_ALL_SIDES }
+}
+
+bitflags! {
+    pub struct Side: u8 {
+        const NONE = 0;
+        const LEFT = 1;
+        const RIGHT = 2;
+        const TOP = 4;
+        const BOTTOM = 8;
+    }
+}
+
+impl Default for Side {
+    fn default() -> Self { Self::all() }
+}
+
+pub fn get_screen_dpi2() -> usize {
+    unsafe { get_screen_dpi() as usize }
+}
+
+pub fn get_screen_scale_factor2() -> f64 {
+    unsafe { get_screen_scale_factor() }
 }
 
 pub fn get_canvas() -> Canvas<'static> {
@@ -453,6 +534,10 @@ pub fn dynamic_update(tp: DynamicUpdateType, x: usize, y: usize, w: usize, h: us
 pub struct Color32(pub u32);
 
 impl Color32 {
+    pub const BLACK: Color32 = Color32(0x000000);
+    pub const GRAY: Color32 = Color32(0x888888);
+    pub const WHITE: Color32 = Color32(0xffffff);
+
     pub const fn rgb(red: u8, green: u8, blue: u8) -> Self {
         Self(((blue as u32) << 16) + ((green as u32) << 8) + red as u32)
     }
@@ -460,6 +545,20 @@ impl Color32 {
 
 pub fn draw_circle(position: VecI32, radius: i32, color: Color32) {
     unsafe { DrawCircle(position.x, position.y, radius, color.0 as c_int) }
+}
+
+pub fn draw_circle_quarter(pos: VecI32, radius: u32, style: Style, thickness: u32, color: Color32, bg_color: Color32) {
+    unsafe { 
+        DrawCircleQuarter(
+            pos.x, 
+            pos.y, 
+            radius as c_int, 
+            style.bits as c_int, 
+            thickness as c_int, 
+            color.0 as c_int, 
+            bg_color.0 as c_int
+        )
+    }
 }
 
 pub fn fill_area(rect: Rect, color: Color32) {
@@ -486,10 +585,32 @@ pub fn draw_rect(rect: Rect, color: Color32) {
     unsafe { DrawRect(rect.pos.x, rect.pos.y, rect.size.x as c_int, rect.size.y as c_int, color.0 as c_int) }
 }
 
-pub fn draw_frame_certified_ex(x: c_int, y: c_int, w: c_int, h: c_int, /*enum edef_thickness*/thickness: c_int, /*eside*/sides: c_int, /*enum estyle*/direction: c_int, radius: c_int, color: c_int, bg_color: c_int) {
-
+pub fn draw_frame_certified_ex(
+    rect: Rect, 
+    thickness: c_int /*enum edef_thickness*/, 
+    sides: Side, 
+    style: Style,
+    radius: usize, 
+    color: Color32, 
+    bg_color: Color32
+) {
+    unsafe {
+        DrawFrameCertifiedEx(
+            rect.pos.x, 
+            rect.pos.y, 
+            rect.size.x as c_int, 
+            rect.size.y as c_int, 
+            thickness,
+            sides.bits as c_int, 
+            style.bits as c_int, 
+            radius as c_int, 
+            color.0 as c_int, 
+            bg_color.0 as c_int
+        )
+    }
 }
 
+#[derive(Debug)]
 pub struct Font<'a> {
     pub name: &'a str,
     pub family: &'a str,
@@ -568,6 +689,8 @@ pub fn minimal_text_rect_width(w: usize, s: &str) -> usize {
     unsafe { MinimalTextRectWidth(w as c_int, s.as_ptr() as *const c_char) as usize }
 }
 
-pub fn draw_text_rect(rect: Rect, s: &str, flags: i32) -> &str {
-    unsafe { CStr::from_ptr(DrawTextRect(rect.pos.x, rect.pos.y, rect.size.x as c_int, rect.size.y as c_int, s.as_ptr() as *const c_char, flags)).to_str().unwrap() }
+pub fn draw_text_rect(rect: Rect, s: &str, flags: i32) -> &CStr {
+    unsafe {         
+        CStr::from_ptr(DrawTextRect(rect.pos.x, rect.pos.y, rect.size.x as c_int, rect.size.y as c_int, s.as_ptr() as *const c_char, flags))
+    }
 }

@@ -8,7 +8,7 @@ use egui::{
 };
 use epaint::ClippedShape;
 
-use super::inkview;
+use super::inkview as iv;
 
 
 pub struct Painter {
@@ -251,32 +251,66 @@ impl Painter {
         (width_in_pixels, height_in_pixels)
     } */
 
-    pub fn emath_pos_to_iv_vec(pos: emath::Pos2) -> inkview::VecI32 {
-        inkview::VecI32 { x: pos.x as i32, y: pos.y as i32 }
+    pub fn emath_pos_to_iv_vec(pos: emath::Pos2) -> iv::VecI32 {
+        iv::VecI32 { x: pos.x as i32, y: pos.y as i32 }
     }
 
-    pub fn emath_rect_to_iv(rect: emath::Rect) -> inkview::Rect {
-        inkview::Rect { pos: Self::emath_pos_to_iv_vec(rect.min), size: inkview::VecUSize { x: (rect.max.x - rect.min.x) as usize, y: (rect.max.y - rect.min.y) as usize } }
+    pub fn emath_rect_to_iv(rect: emath::Rect) -> iv::Rect {
+        iv::Rect { pos: Self::emath_pos_to_iv_vec(rect.min), size: iv::VecUSize { x: (rect.max.x - rect.min.x) as usize, y: (rect.max.y - rect.min.y) as usize } }
     }
 
-    pub fn epaint_color_to_iv(color: epaint::Color32) -> inkview::Color32 {
-        inkview::Color32::rgb(color.r(), color.g(), color.b())
+    pub fn epaint_color_to_iv(color: epaint::Color32) -> iv::Color32 {
+        iv::Color32::rgb(color.r(), color.g(), color.b())
     }
 
-    pub fn paint_shape<'f>(&mut self, shape: ClippedShape, font: &inkview::Font<'f>) {
+    pub fn paint_shape<'f>(&mut self, shape: ClippedShape, font: &iv::Font<'f>) {
         match shape.1 {
             egui::Shape::Noop => todo!(),
             egui::Shape::Vec(_) => todo!(),
-            egui::Shape::Circle(circle) => inkview::draw_circle(Painter::emath_pos_to_iv_vec(circle.center), circle.radius as i32, Self::epaint_color_to_iv(circle.fill)),
+            egui::Shape::Circle(circle) => {
+                iv::draw_circle_quarter(
+                    Painter::emath_pos_to_iv_vec(circle.center), 
+                    circle.radius as u32, 
+                    iv::Style::from_bits_truncate(iv::Style::default().bits() | iv::Style::FILL_INSIDE.bits()), 
+                    circle.stroke.width as u32, 
+                    Self::epaint_color_to_iv(circle.stroke.color), 
+                    Self::epaint_color_to_iv(circle.fill)
+                )
+            },
             egui::Shape::LineSegment { points, stroke } => todo!(),
             egui::Shape::Path(path) => todo!(),
-            egui::Shape::Rect(rect) => inkview::fill_area(Self::emath_rect_to_iv(rect.rect), Self::epaint_color_to_iv(rect.fill)),
+            egui::Shape::Rect(rect) => {
+
+                iv::draw_frame_certified_ex(
+                    Self::emath_rect_to_iv(rect.rect), 
+                    1, // rect.stroke.width as i32, 
+                    iv::Side::default(),
+                    iv::Style::from_bits_truncate(iv::Style::default().bits() | iv::Style::FILL_INSIDE.bits()), 
+                    0, 
+                    iv::Color32::BLACK, // Self::epaint_color_to_iv(rect.stroke.color), 
+                    iv::Color32::BLACK //Self::epaint_color_to_iv(rect.fill)
+                );
+            }
             egui::Shape::Text(text) => {
+                let galley = text.galley.as_ref();
+                let job = galley.job.as_ref();
 
-                let str = &text.galley.as_ref().job.as_ref().text;
+                let translated_rect = galley.rect.translate(text.pos.to_vec2());
+               
+                if job.sections.len() > 0 {
+                    let f =  &job.sections[0].format.font_id;
 
-                inkview::set_font(font, Self::epaint_color_to_iv(text.override_text_color.unwrap_or(Color32::from_rgb(255, 255, 255))));
-                inkview::draw_string(Self::emath_pos_to_iv_vec(text.pos), str.as_str());
+                    //println!("f: {:?}", font);
+
+                    //println!("f.family: {}", f.family);
+
+                    iv::set_font(font, Self::epaint_color_to_iv(text.override_text_color.unwrap_or(Color32::from_rgb(255, 255, 255))));
+                
+                    iv::draw_text_rect(Self::emath_rect_to_iv(translated_rect), job.text.as_str(), 0);
+                }
+
+               
+                //iv::draw_string(Self::emath_pos_to_iv_vec(text.pos), job.text.as_str());
             },
             egui::Shape::Mesh(_) => todo!(),
             egui::Shape::QuadraticBezier(_) => todo!(),
@@ -289,8 +323,8 @@ impl Painter {
         &mut self,
         clipped_shapes: Vec<epaint::ClippedShape>,
         textures_delta: &egui::TexturesDelta,
-        canvas: &mut inkview::Canvas<'_>,
-        font: &inkview::Font<'f>
+        canvas: &mut iv::Canvas<'_>,
+        font: &iv::Font<'f>
     ) {
 
         for (id, image_delta) in &textures_delta.set {
@@ -305,8 +339,9 @@ impl Painter {
                 },
                 egui::ImageData::Alpha(image) => {
                     println!("\talpha image: {:?}", image.size);
+                    [image.width(), image.height()]
 
-
+/*
                     let unwraped_pos = image_delta.pos.unwrap_or([0, 0]);
 
                     let end_pos = [
@@ -333,8 +368,11 @@ impl Painter {
                     );
 
                     [image.width(), image.height()]
+                     */
                 },
             };
+
+            
             
 
             println!("\timage_delta: {:?}, {:?}", p, s)
@@ -345,7 +383,7 @@ impl Painter {
             self.paint_shape(s, font)
         }
 
-        inkview::full_update(inkview::FullSoftUpdateType::Normal(inkview::update_type::Normal))
+        iv::full_update(iv::FullSoftUpdateType::Normal(iv::update_type::Normal))
 
         //self.paint_meshes(gl, inner_size, pixels_per_point, clipped_meshes);
 

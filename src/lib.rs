@@ -4,4 +4,9 @@
 mod app;
 pub use app::TemplateApp;
 
-pub mod platform;
+
+#[cfg(feature = "default")]
+pub mod iv_platform;
+
+#[cfg(feature = "use_sdl2")]
+pub mod sdl2_platform;
