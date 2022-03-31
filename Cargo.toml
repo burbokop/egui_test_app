@@ -1,0 +1,20 @@
+[package]
+name = "egui_app"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+egui = { version = "0.17.0", features = [ "convert_bytemuck"] }
+epi = "0.17.0"
+emath = "0.17.0"
+epaint = "0.17.0"
+num_enum = "0.5.7"
+gl = "0.14"
+ahash = "0.7"
+bytemuck = "1.7"
+# sdl2 = "0.35"
+
+[dev-dependencies]
+image = { version = "0.24", default-features = false, features = ["png"] }
