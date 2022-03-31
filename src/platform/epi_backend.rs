@@ -22,7 +22,7 @@ pub fn clipped_mesh_from_shape(shape: ClippedShape) -> Option<ClippedMesh> {
     }
 }
 
-pub fn run<A: epi::App>(app: Box<A>, native_options: &epi::NativeOptions) -> ! {
+pub fn run_native<A: epi::App>(app: Box<A>, native_options: epi::NativeOptions) -> ! {
     //println!("debug: {:?} -> {:?}", app, native_options.initial_window_pos);
 
     let mut app_mut = app;

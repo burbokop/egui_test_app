@@ -10,16 +10,19 @@ fn main() {
 }
 */
 
+#[cfg(feature = "use_eframe")]
+fn run<A: epi::App + 'static>(app: Box<A>, native_options: epi::NativeOptions) -> ! {
+    eframe::run_native(app, native_options);
 
+}
 
+#[cfg(not(feature = "use_eframe"))]
+fn run<A: epi::App>(app: Box<A>, native_options: epi::NativeOptions) -> ! {
+    egui_app::platform::run_native(app, native_options);
+}
 
-
-fn main() {
-    let options = epi::NativeOptions::default();
-    egui_app::platform::run(
-        Box::new(MyApp::default()),
-        &options,
-    );
+fn main() {    
+    run(Box::new(MyApp::default()), epi::NativeOptions::default());
 }
 
 #[derive(Debug)]
