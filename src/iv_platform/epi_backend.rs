@@ -60,33 +60,8 @@ pub fn run_native<A: epi::App>(mut app: Box<A>, native_options: epi::NativeOptio
 
 
         if needs_repaint {
-
             painter.paint_and_update_textures(shapes, &textures_delta, &mut canvas, &font);
-
-/*
-            for (id, image_delta) in &textures_delta.set {
-                let p = &image_delta.pos;
-    
-                match &image_delta.image {
-                    egui::ImageData::Color(image) => {
-                        println!("\tcolor image: {:?}", image.size);
-                    },
-                    egui::ImageData::Alpha(image) => {
-                        println!("\talpha image: {:?}", image.size);
-
-                        let a = shapes.iter().cloned().map(clipped_mesh_from_shape).filter_map(identity);
-
-                        //painter.paint_jobs(Some(Color32::GRAY), a.collect(), 0, &image)
-
-
-                    }
-                }
-            }
-*/
-
         }
-
-        println!("needs_repaint: {:?}", needs_repaint);
 
         inkview::process_event_loop();
         std::thread::sleep(std::time::Duration::from_millis(100));

@@ -1,4 +1,7 @@
+use egui::Event;
+use epaint::{Vec2, Pos2};
 use epi::backend::{FrameData, RepaintSignal};
+use queues::{Queue, IsQueue};
 
 use super::inkview;
 
@@ -11,6 +14,8 @@ pub struct EpiIntegration {
     /// When set, it is time to quit
     quit: bool,
     can_drag_window: bool,
+
+    event_q: Queue<Event>
 }
 
 
@@ -98,7 +103,7 @@ impl EpiIntegration {
             can_drag_window: false,
         }
          */
-        Self { can_drag_window: true, egui_ctx: egui_ctx, quit: false, frame: frame, pending_full_output: Default::default() }
+        Self { can_drag_window: true, egui_ctx: egui_ctx, quit: false, frame: frame, pending_full_output: Default::default(), event_q: Default::default() }
     }
 
     /*
@@ -116,113 +121,142 @@ impl EpiIntegration {
     pub fn should_quit(&self) -> bool {
         self.quit
     }
+    /* 
+    inkview::EventType::Exit => if app.on_exit_event() { 
+        inkview::clear_on_exit(); 
+        std::process::exit(0)
+    } else { false },
+*/
+
+    pub fn convert_event_to_app<A: epi::App>(&mut self, app: &mut A, event: &inkview::Event) -> Option<egui::Event> {
+
+        println!("event: {:?}", event);
+        match event {
+            inkview::Event::Init => None,
+            inkview::Event::Exit => if app.on_exit_event() { 
+                inkview::clear_on_exit(); 
+                std::process::exit(0)
+            } else { None },
+            inkview::Event::Show => None,
+            inkview::Event::Hide => None,
+            inkview::Event::KeyPress => todo!(),
+            inkview::Event::KeyRelease => todo!(),
+            inkview::Event::KeyRepeat => todo!(),
+            inkview::Event::KeyPressExt => todo!(),
+            inkview::Event::KeyReleaseExt => todo!(),
+            inkview::Event::KeyRepeatExt => todo!(),
+            inkview::Event::PointerUp { pos } => Some(egui::Event::Touch {
+                device_id: egui::TouchDeviceId(0),
+                id: egui::TouchId(0),
+                phase: egui::TouchPhase::End,
+                pos: Pos2::new(pos.x as f32, pos.y as f32),
+                force: 1.,
+            }),
+            inkview::Event::PointerDown { pos } => Some(egui::Event::Touch {
+                device_id: egui::TouchDeviceId(0),
+                id: egui::TouchId(0),
+                phase: egui::TouchPhase::Start,
+                pos: Pos2::new(pos.x as f32, pos.y as f32),
+                force: 1.,
+            }),
+            inkview::Event::PointerMove { pos } => Some(egui::Event::PointerMoved(Pos2::new(pos.x as f32, pos.y as f32))),
+            inkview::Event::Scroll => todo!(),
+            inkview::Event::PointerLong { pos } => { println!("\tlong: {:?}", pos); None },
+            inkview::Event::PointerHold { pos } => { println!("\thold: {:?}", pos); None },
+            inkview::Event::PointerDrag { pos } => { println!("\tdrag: {:?}", pos); None },
+            inkview::Event::PointerCancel { pos } => { println!("\tcancel: {:?}", pos); None },
+            inkview::Event::PointerChanged { pos } => { println!("\tchanged: {:?}", pos); None },
+            inkview::Event::Orientation => todo!(),
+            inkview::Event::Focus => todo!(),
+            inkview::Event::Unfocus => todo!(),
+            inkview::Event::Activate => todo!(),
+            inkview::Event::MtSync => None,
+            inkview::Event::TouchUp => todo!(),
+            inkview::Event::TouchDown => todo!(),
+            inkview::Event::TouchMove => todo!(),
+            inkview::Event::Repaint => todo!(),
+            inkview::Event::QnMove => todo!(),
+            inkview::Event::QnReleaseEASE => todo!(),
+            inkview::Event::QnBorder => todo!(),
+            inkview::Event::Snapshot => todo!(),
+            inkview::Event::Fsincoming => todo!(),
+            inkview::Event::Fschanged => todo!(),
+            inkview::Event::MpStatechanged => todo!(),
+            inkview::Event::MpTrackchanged => todo!(),
+            inkview::Event::Prevpage => todo!(),
+            inkview::Event::Nextpage => todo!(),
+            inkview::Event::Opendic => todo!(),
+            inkview::Event::ControlPanelAboutToOpen => todo!(),
+            inkview::Event::Update => todo!(),
+            inkview::Event::PanelBluetoothA2dp => todo!(),
+            inkview::Event::Tab => todo!(),
+            inkview::Event::Panel => todo!(),
+            inkview::Event::PanelIcon => todo!(),
+            inkview::Event::PanelText => todo!(),
+            inkview::Event::PanelProgress => todo!(),
+            inkview::Event::PanelMplayer => todo!(),
+            inkview::Event::PanelUsbdrive => todo!(),
+            inkview::Event::PanelNetwork => todo!(),
+            inkview::Event::PanelClock => todo!(),
+            inkview::Event::PanelBluetooth => todo!(),
+            inkview::Event::PanelTasklist => todo!(),
+            inkview::Event::PanelObreeySync => todo!(),
+            inkview::Event::PanelSetreadingmode => todo!(),
+            inkview::Event::PanelSetreadingmodeInvert => todo!(),
+            inkview::Event::PanelFrontLight => todo!(),
+            inkview::Event::GlobalRequest => todo!(),
+            inkview::Event::GlobalAction => todo!(),
+            inkview::Event::Foreground => todo!(),
+            inkview::Event::Background => todo!(),
+            inkview::Event::SubTaskClose => todo!(),
+            inkview::Event::ConfigChanged => todo!(),
+            inkview::Event::SaveState => todo!(),
+            inkview::Event::ObreeyConfigChanged => todo!(),
+            inkview::Event::Sdin => todo!(),
+            inkview::Event::Sdout => todo!(),
+            inkview::Event::UsbStoreIn => todo!(),
+            inkview::Event::UsbStoreOut => todo!(),
+            inkview::Event::BtRxComplete => todo!(),
+            inkview::Event::BtTxComplete => todo!(),
+            inkview::Event::SynthEnded => todo!(),
+            inkview::Event::DicClosedARD => todo!(),
+            inkview::Event::ShowKeyboard => todo!(),
+            inkview::Event::TextClear => todo!(),
+            inkview::Event::ExtKb => todo!(),
+            inkview::Event::Letter => todo!(),
+            inkview::Event::Callback => todo!(),
+            inkview::Event::ScanProgress => todo!(),
+            inkview::Event::StopScan => todo!(),
+            inkview::Event::StartScan => todo!(),
+            inkview::Event::ScanStopped => todo!(),
+            inkview::Event::PostponeTimedPowerOff => todo!(),
+            inkview::Event::FrameActivated => todo!(),
+            inkview::Event::FrameDeactivated => todo!(),
+            inkview::Event::ReadProgressChanged => todo!(),
+            inkview::Event::DumpBitmapsDebugInfo => todo!(),
+            inkview::Event::NetConnected => todo!(),
+            inkview::Event::NetDisconnected => todo!(),
+            inkview::Event::NetFoundNewFw => todo!(),
+            inkview::Event::SynthPosition => todo!(),
+            inkview::Event::AsyncTaskFinished => todo!(),
+            inkview::Event::StopPlaying => todo!(),
+            inkview::Event::AvrcpCommand => todo!(),
+            inkview::Event::AudioChanged => todo!(),
+            inkview::Event::PackageJobChanged => todo!(),
+            inkview::Event::Custom => todo!(),
+        }
+    }
 
 
     pub fn on_event<A: epi::App>(&mut self, app: &mut A, event: &inkview::Event) -> bool {
 
-        println!("event: {:?}", event);
-        match event.event_type {
-            inkview::EventType::Init => false,
-            inkview::EventType::Exit => if app.on_exit_event() { 
-                inkview::clear_on_exit(); 
-                std::process::exit(0)
-            } else { false },
-            inkview::EventType::Show => false,
-            inkview::EventType::Hide => todo!(),
-            inkview::EventType::KeyPress => todo!(),
-            inkview::EventType::KeyRelease => todo!(),
-            inkview::EventType::KeyRepeat => todo!(),
-            inkview::EventType::KeyPressExt => todo!(),
-            inkview::EventType::KeyReleaseExt => todo!(),
-            inkview::EventType::KeyRepeatExt => todo!(),
-            inkview::EventType::PointerUp => todo!(),
-            inkview::EventType::PointerDown => todo!(),
-            inkview::EventType::PointerMove => todo!(),
-            inkview::EventType::Scroll => todo!(),
-            inkview::EventType::PointerLong => todo!(),
-            inkview::EventType::PointerHold => todo!(),
-            inkview::EventType::PointerDrag => todo!(),
-            inkview::EventType::PointerCancel => todo!(),
-            inkview::EventType::PointerChanged => todo!(),
-            inkview::EventType::Orientation => todo!(),
-            inkview::EventType::Focus => todo!(),
-            inkview::EventType::Unfocus => todo!(),
-            inkview::EventType::Activate => todo!(),
-            inkview::EventType::MtSync => todo!(),
-            inkview::EventType::TouchUp => todo!(),
-            inkview::EventType::TouchDown => todo!(),
-            inkview::EventType::TouchMove => todo!(),
-            inkview::EventType::Repaint => todo!(),
-            inkview::EventType::QnMove => todo!(),
-            inkview::EventType::QnReleaseEASE => todo!(),
-            inkview::EventType::QnBorder => todo!(),
-            inkview::EventType::Snapshot => todo!(),
-            inkview::EventType::Fsincoming => todo!(),
-            inkview::EventType::Fschanged => todo!(),
-            inkview::EventType::MpStatechanged => todo!(),
-            inkview::EventType::MpTrackchanged => todo!(),
-            inkview::EventType::Prevpage => todo!(),
-            inkview::EventType::Nextpage => todo!(),
-            inkview::EventType::Opendic => todo!(),
-            inkview::EventType::ControlPanelAboutToOpen => todo!(),
-            inkview::EventType::Update => todo!(),
-            inkview::EventType::PanelBluetoothA2dp => todo!(),
-            inkview::EventType::Tab => todo!(),
-            inkview::EventType::Panel => todo!(),
-            inkview::EventType::PanelIcon => todo!(),
-            inkview::EventType::PanelText => todo!(),
-            inkview::EventType::PanelProgress => todo!(),
-            inkview::EventType::PanelMplayer => todo!(),
-            inkview::EventType::PanelUsbdrive => todo!(),
-            inkview::EventType::PanelNetwork => todo!(),
-            inkview::EventType::PanelClock => todo!(),
-            inkview::EventType::PanelBluetooth => todo!(),
-            inkview::EventType::PanelTasklist => todo!(),
-            inkview::EventType::PanelObreeySync => todo!(),
-            inkview::EventType::PanelSetreadingmode => todo!(),
-            inkview::EventType::PanelSetreadingmodeInvert => todo!(),
-            inkview::EventType::PanelFrontLight => todo!(),
-            inkview::EventType::Globalrequest => todo!(),
-            inkview::EventType::Globalaction => todo!(),
-            inkview::EventType::Foreground => todo!(),
-            inkview::EventType::Background => todo!(),
-            inkview::EventType::Subtaskclose => todo!(),
-            inkview::EventType::Configchanged => todo!(),
-            inkview::EventType::Savestate => todo!(),
-            inkview::EventType::ObreeyConfigChanged => todo!(),
-            inkview::EventType::Sdin => todo!(),
-            inkview::EventType::Sdout => todo!(),
-            inkview::EventType::UsbstoreIn => todo!(),
-            inkview::EventType::UsbstoreOut => todo!(),
-            inkview::EventType::BtRxcomplete => todo!(),
-            inkview::EventType::BtTxcomplete => todo!(),
-            inkview::EventType::SynthEnded => todo!(),
-            inkview::EventType::DicClosedARD => todo!(),
-            inkview::EventType::ShowKeyboard201 => todo!(),
-            inkview::EventType::Textclear => todo!(),
-            inkview::EventType::ExtKb => todo!(),
-            inkview::EventType::Letter => todo!(),
-            inkview::EventType::Callback => todo!(),
-            inkview::EventType::Scanprogress => todo!(),
-            inkview::EventType::Stopscan => todo!(),
-            inkview::EventType::Startscan => todo!(),
-            inkview::EventType::Scanstopped => todo!(),
-            inkview::EventType::PostponeTimedPoweroff => todo!(),
-            inkview::EventType::FrameActivated => todo!(),
-            inkview::EventType::FrameDeactivated => todo!(),
-            inkview::EventType::ReadProgressChanged => todo!(),
-            inkview::EventType::DumpBitmapsDebugInfo => todo!(),
-            inkview::EventType::NetConnected => todo!(),
-            inkview::EventType::NetDisconnected => todo!(),
-            inkview::EventType::NetFoundNewFw => todo!(),
-            inkview::EventType::SynthPosition => todo!(),
-            inkview::EventType::AsyncTaskFinished => todo!(),
-            inkview::EventType::StopPlaying => todo!(),
-            inkview::EventType::AvrcpCommand => todo!(),
-            inkview::EventType::AudioChanged => todo!(),
-            inkview::EventType::PackageJobChanged => todo!(),
-            inkview::EventType::Custom => todo!(),
+        let e = self.convert_event_to_app(app, event);
+
+        if let Some(ee) = e {
+            self.event_q.add(ee).unwrap();
         }
+
+        return true
 
         //self.egui_winit.on_event(&self.egui_ctx, event);
     }
@@ -234,11 +268,19 @@ impl EpiIntegration {
         //let frame_start = instant::Instant::now();
 
 
+        let mut events: Vec<egui::Event> = Vec::with_capacity(self.event_q.size());
+        while self.event_q.size() > 0 {
+            events.push(self.event_q.peek().unwrap());
+            self.event_q.remove().unwrap();
+        }
+
+        
         let raw_input = egui::RawInput { 
             screen_rect: Some(egui::Rect::from_min_size(
                 Default::default(), 
                 emath::Vec2::new(inkview::screen_width().unwrap() as f32, inkview::screen_width().unwrap() as f32)
             )),            
+            events: events,
             ..Default::default() 
         };
 
