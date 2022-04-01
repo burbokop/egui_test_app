@@ -23,10 +23,32 @@ pub fn clipped_mesh_from_shape(shape: ClippedShape) -> Option<ClippedMesh> {
     }
 }
 
+
+pub fn pixels_per_point32() -> f32 {
+    inkview::get_screen_scale_factor().unwrap() as f32 * inkview::get_screen_dpi().unwrap() as f32 / 160.
+}
+
+pub fn pixels_per_point64() -> f64 {
+    inkview::get_screen_scale_factor().unwrap() * inkview::get_screen_dpi().unwrap() as f64 / 160.
+}
+
+pub fn dp_to_pix32(v: f32) -> f32 {
+    v * pixels_per_point32()
+}
+pub fn dp_to_pix64(v: f64) -> f64 {
+    v * pixels_per_point64()
+}
+
 pub fn run_native<A: epi::App>(mut app: Box<A>, native_options: epi::NativeOptions) -> ! {
     //println!("debug: {:?} -> {:?}", app, native_options.initial_window_pos);
 
-    let mut integration = super::epi_integration::EpiIntegration::new(None);
+    inkview::open_screen();
+
+    println!("AAAAA");
+    println!("))): pixels_per_point32: {}", pixels_per_point32());
+
+    let mut integration = super::epi_integration::EpiIntegration::new(None, pixels_per_point32());
+
 
     inkview::prepare_for_loop_ex(|event| -> bool {
         integration.on_event(app.deref_mut(), &event)
@@ -40,8 +62,8 @@ pub fn run_native<A: epi::App>(mut app: Box<A>, native_options: epi::NativeOptio
 
     println!("canvas: {:?}", canvas);
 
-    println!("inkview::get_screen_scale_factor2(): {:?}", inkview::get_screen_scale_factor2());
-    println!("inkview::get_screen_dpi2(): {:?}", inkview::get_screen_dpi2());
+    println!("inkview::get_screen_scale_factor2(): {:?}", inkview::get_screen_scale_factor());
+    println!("inkview::get_screen_dpi2(): {:?}", inkview::get_screen_dpi());
 
     //&mut canvas, 1., ShaderVersion::Default
 
@@ -64,6 +86,6 @@ pub fn run_native<A: epi::App>(mut app: Box<A>, native_options: epi::NativeOptio
         }
 
         inkview::process_event_loop();
-        std::thread::sleep(std::time::Duration::from_millis(100));
+        std::thread::sleep(std::time::Duration::from_millis(1000 / 30));
     }
 }

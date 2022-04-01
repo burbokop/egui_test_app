@@ -39,6 +39,9 @@ extern "C" {
     pub(super) fn GetCurrentTask() -> c_int;
     //taskinfo *GetTaskInfo(pid: std::os::raw::c_int);
 
+    pub(super) fn OpenScreen();
+    pub(super) fn IsScreenOpened() -> c_int;
+
     pub(super) fn PrepareForLoop(event_handler: Option<extern "C" fn(c_int, c_int, c_int) -> c_int>);
     pub(super) fn PrepareForLoopEx(ctx: *mut c_void, event_handler: Option<extern "C" fn(*mut c_void, c_int, c_int, c_int) -> c_int>);
     pub(super) fn ProcessEventLoop();

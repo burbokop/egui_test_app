@@ -14,7 +14,7 @@ pub struct EpiIntegration {
     /// When set, it is time to quit
     quit: bool,
     can_drag_window: bool,
-
+    pixels_per_point: f32,
     event_q: Queue<Event>
 }
 
@@ -54,9 +54,10 @@ pub fn handle_app_output(app_output: epi::backend::AppOutput) {
 
 
 impl EpiIntegration {
-    pub fn new(storage: Option<Box<dyn epi::Storage>>) -> Self {
+    pub fn new(storage: Option<Box<dyn epi::Storage>>, pixels_per_point: f32) -> Self {
         let egui_ctx = egui::Context::default();
 
+        println!("pixels_per_point: {}", pixels_per_point);
         //*egui_ctx.memory() = load_egui_memory(storage.as_deref()).unwrap_or_default();
 
         //let prefer_dark_mode = prefer_dark_mode();
@@ -103,7 +104,15 @@ impl EpiIntegration {
             can_drag_window: false,
         }
          */
-        Self { can_drag_window: true, egui_ctx: egui_ctx, quit: false, frame: frame, pending_full_output: Default::default(), event_q: Default::default() }
+        Self { 
+            can_drag_window: true, 
+            egui_ctx: egui_ctx, 
+            quit: false, 
+            frame: frame, 
+            pending_full_output: Default::default(), 
+            pixels_per_point: pixels_per_point, 
+            event_q: Default::default() 
+        }
     }
 
     /*
@@ -130,11 +139,11 @@ impl EpiIntegration {
 
     pub fn convert_event_to_app<A: epi::App>(&mut self, app: &mut A, event: &inkview::Event) -> Option<egui::Event> {
 
-        println!("event: {:?}", event);
+        println!("event: {:?}, (ppp: {}) (sppp: {})", event, self.egui_ctx.pixels_per_point(), self.pixels_per_point);
         match event {
             inkview::Event::Init => None,
             inkview::Event::Exit => if app.on_exit_event() { 
-                inkview::clear_on_exit(); 
+                //inkview::clear_on_exit(); 
                 std::process::exit(0)
             } else { None },
             inkview::Event::Show => None,
@@ -149,17 +158,21 @@ impl EpiIntegration {
                 device_id: egui::TouchDeviceId(0),
                 id: egui::TouchId(0),
                 phase: egui::TouchPhase::End,
-                pos: Pos2::new(pos.x as f32, pos.y as f32),
+                pos: Pos2::new(pos.x as f32 / self.egui_ctx.pixels_per_point(), pos.y as f32 / self.egui_ctx.pixels_per_point()),
                 force: 1.,
             }),
             inkview::Event::PointerDown { pos } => Some(egui::Event::Touch {
                 device_id: egui::TouchDeviceId(0),
                 id: egui::TouchId(0),
                 phase: egui::TouchPhase::Start,
-                pos: Pos2::new(pos.x as f32, pos.y as f32),
+                pos: Pos2::new(pos.x as f32 / self.egui_ctx.pixels_per_point(), pos.y as f32 / self.egui_ctx.pixels_per_point()),
                 force: 1.,
             }),
-            inkview::Event::PointerMove { pos } => Some(egui::Event::PointerMoved(Pos2::new(pos.x as f32, pos.y as f32))),
+            inkview::Event::PointerMove { pos } => {
+                inkview::draw_circle(pos.clone(), 1, inkview::Color32::GRAY);
+                println!("ptr move: self.egui_ctx.pixels_per_point(): {}", self.egui_ctx.pixels_per_point());
+                Some(egui::Event::PointerMoved(Pos2::new(pos.x as f32 / self.egui_ctx.pixels_per_point(), pos.y as f32 / self.egui_ctx.pixels_per_point())))
+            },
             inkview::Event::Scroll => todo!(),
             inkview::Event::PointerLong { pos } => { println!("\tlong: {:?}", pos); None },
             inkview::Event::PointerHold { pos } => { println!("\thold: {:?}", pos); None },
@@ -206,8 +219,8 @@ impl EpiIntegration {
             inkview::Event::PanelFrontLight => todo!(),
             inkview::Event::GlobalRequest => todo!(),
             inkview::Event::GlobalAction => todo!(),
-            inkview::Event::Foreground => todo!(),
-            inkview::Event::Background => todo!(),
+            inkview::Event::Foreground => None,
+            inkview::Event::Background => None,
             inkview::Event::SubTaskClose => todo!(),
             inkview::Event::ConfigChanged => todo!(),
             inkview::Event::SaveState => todo!(),
@@ -261,6 +274,8 @@ impl EpiIntegration {
         //self.egui_winit.on_event(&self.egui_ctx, event);
     }
 
+
+
     pub fn update(
         &mut self,
         app: &mut dyn epi::App,
@@ -280,6 +295,7 @@ impl EpiIntegration {
                 Default::default(), 
                 emath::Vec2::new(inkview::screen_width().unwrap() as f32, inkview::screen_width().unwrap() as f32)
             )),            
+            pixels_per_point: Some(self.pixels_per_point),
             events: events,
             ..Default::default() 
         };

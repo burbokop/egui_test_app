@@ -269,7 +269,7 @@ impl Painter {
             egui::Shape::Vec(_) => todo!(),
             egui::Shape::Circle(circle) => {
                 iv::draw_circle_quarter(
-                    Painter::emath_pos_to_iv_vec(circle.center), 
+                    &Painter::emath_pos_to_iv_vec(circle.center), 
                     circle.radius as u32, 
                     iv::Style::from_bits_truncate(iv::Style::default().bits() | iv::Style::FILL_INSIDE.bits()), 
                     circle.stroke.width as u32, 
@@ -282,10 +282,10 @@ impl Painter {
             egui::Shape::Rect(rect) => {
 
                 iv::draw_frame_certified_ex(
-                    Self::emath_rect_to_iv(rect.rect), 
+                    &Self::emath_rect_to_iv(rect.rect), 
                     1, // rect.stroke.width as i32, 
-                    iv::Side::default(),
-                    iv::Style::from_bits_truncate(iv::Style::default().bits() | iv::Style::FILL_INSIDE.bits()), 
+                    &iv::Side::default(),
+                    &iv::Style::from_bits_truncate(iv::Style::default().bits() | iv::Style::FILL_INSIDE.bits()), 
                     0, 
                     iv::Color32::BLACK, // Self::epaint_color_to_iv(rect.stroke.color), 
                     iv::Color32::BLACK //Self::epaint_color_to_iv(rect.fill)
@@ -383,7 +383,7 @@ impl Painter {
             self.paint_shape(s, font)
         }
 
-        iv::full_update(iv::FullSoftUpdateType::Normal(iv::update_type::Normal))
+        iv::full_update(&iv::FullSoftUpdateType::Normal(iv::update_type::Normal))
 
         //self.paint_meshes(gl, inner_size, pixels_per_point, clipped_meshes);
 

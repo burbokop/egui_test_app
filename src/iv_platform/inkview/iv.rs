@@ -11,6 +11,14 @@ pub fn current_task() -> i32 {
     unsafe { c_iv::GetCurrentTask() }
 }
 
+pub fn open_screen() {
+    unsafe { c_iv::OpenScreen() }
+}
+
+pub fn is_screen_opened() -> bool {
+    unsafe { c_iv::IsScreenOpened() > 0 }
+}
+
 pub fn device_model() -> &'static str {
     unsafe { CStr::from_ptr(c_iv::GetDeviceModel()) }.to_str().unwrap() 
 }
@@ -159,16 +167,29 @@ bitflags! {
     }
 }
 
+#[derive(Debug)]
+pub enum Error {
+    ScreenNotOpened
+}
+
 impl Default for Side {
     fn default() -> Self { Self::all() }
 }
 
-pub fn get_screen_dpi2() -> usize {
-    unsafe { c_iv::get_screen_dpi() as usize }
+pub fn get_screen_dpi() -> Result<usize, Error> {
+    if is_screen_opened() {
+        unsafe { Ok(c_iv::get_screen_dpi() as usize) }
+    } else {
+        Err(Error::ScreenNotOpened)
+    }
 }
 
-pub fn get_screen_scale_factor2() -> f64 {
-    unsafe { c_iv::get_screen_scale_factor() }
+pub fn get_screen_scale_factor() -> Result<f64, Error> {
+    if is_screen_opened() {
+        unsafe { Ok(c_iv::get_screen_scale_factor()) }
+    } else {
+        Err(Error::ScreenNotOpened)
+    }
 }
 
 pub fn get_canvas() -> Canvas<'static> {
@@ -207,14 +228,14 @@ pub enum FullSoftUpdateType {
     HQ(update_type::HQ)
 }
 
-pub fn full_update(tp: FullSoftUpdateType) {
+pub fn full_update(tp: &FullSoftUpdateType) {
     match tp {
         FullSoftUpdateType::Normal(_) => unsafe { c_iv::FullUpdate() },
         FullSoftUpdateType::HQ(_) => unsafe { c_iv::FullUpdateHQ() },
     }
 }
 
-pub fn soft_update(tp: FullSoftUpdateType) {
+pub fn soft_update(tp: &FullSoftUpdateType) {
     match tp {
         FullSoftUpdateType::Normal(_) => unsafe { c_iv::SoftUpdate() },
         FullSoftUpdateType::HQ(_) => unsafe { c_iv::SoftUpdateHQ() },
@@ -229,7 +250,7 @@ pub enum PartialUpdateType {
     DU4(update_type::DU4)
 }
 
-pub fn partial_update(tp: PartialUpdateType, x: usize, y: usize, w: usize, h: usize) {
+pub fn partial_update(tp: &PartialUpdateType, x: usize, y: usize, w: usize, h: usize) {
     match tp {
         PartialUpdateType::Normal(_) => unsafe { c_iv::PartialUpdate(x as c_int, y as c_int, w as c_int, h as c_int) },
         PartialUpdateType::HQ(_) => unsafe { c_iv::PartialUpdateHQ(x as c_int, y as c_int, w as c_int, h as c_int) },
@@ -244,7 +265,7 @@ pub enum DynamicUpdateType {
     BW(update_type::BW),
 }
 
-pub fn dynamic_update(tp: DynamicUpdateType, x: usize, y: usize, w: usize, h: usize) {
+pub fn dynamic_update(tp: &DynamicUpdateType, x: usize, y: usize, w: usize, h: usize) {
     match tp {
         DynamicUpdateType::Normal(_) => unsafe { c_iv::DynamicUpdate(x as c_int, y as c_int, w as c_int, h as c_int) },
         DynamicUpdateType::BW(_) => unsafe { c_iv::DynamicUpdateBW(x as c_int, y as c_int, w as c_int, h as c_int) },
@@ -264,11 +285,11 @@ impl Color32 {
     }
 }
 
-pub fn draw_circle(position: VecI32, radius: i32, color: Color32) {
+pub fn draw_circle(position: &VecI32, radius: i32, color: Color32) {
     unsafe { c_iv::DrawCircle(position.x, position.y, radius, color.0 as c_int) }
 }
 
-pub fn draw_circle_quarter(pos: VecI32, radius: u32, style: Style, thickness: u32, color: Color32, bg_color: Color32) {
+pub fn draw_circle_quarter(pos: &VecI32, radius: u32, style: Style, thickness: u32, color: Color32, bg_color: Color32) {
     unsafe { 
         c_iv::DrawCircleQuarter(
             pos.x, 
@@ -282,7 +303,7 @@ pub fn draw_circle_quarter(pos: VecI32, radius: u32, style: Style, thickness: u3
     }
 }
 
-pub fn fill_area(rect: Rect, color: Color32) {
+pub fn fill_area(rect: &Rect, color: Color32) {
     unsafe { c_iv::FillArea(rect.pos.x, rect.pos.y, rect.size.x as c_int, rect.size.y as c_int, color.0 as c_int) }
 }
 
@@ -307,10 +328,10 @@ pub fn draw_rect(rect: Rect, color: Color32) {
 }
 
 pub fn draw_frame_certified_ex(
-    rect: Rect, 
+    rect: &Rect, 
     thickness: c_int /*enum edef_thickness*/, 
-    sides: Side, 
-    style: Style,
+    sides: &Side, 
+    style: &Style,
     radius: usize, 
     color: Color32, 
     bg_color: Color32
