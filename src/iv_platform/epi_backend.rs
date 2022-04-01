@@ -7,7 +7,7 @@ use epi;
 
 
 
-use crate::iv_platform::painter::Painter;
+use crate::iv_platform::{painter::Painter, inkview::NonZeroF32};
 
 use super::inkview;
 
@@ -47,7 +47,7 @@ pub fn run_native<A: epi::App>(mut app: Box<A>, native_options: epi::NativeOptio
     println!("AAAAA");
     println!("))): pixels_per_point32: {}", pixels_per_point32());
 
-    let mut integration = super::epi_integration::EpiIntegration::new(None, pixels_per_point32());
+    let mut integration = super::epi_integration::EpiIntegration::new(None, NonZeroF32::from_f32(pixels_per_point32()).unwrap());
 
 
     inkview::prepare_for_loop_ex(|event| -> bool {
@@ -67,7 +67,7 @@ pub fn run_native<A: epi::App>(mut app: Box<A>, native_options: epi::NativeOptio
 
     //&mut canvas, 1., ShaderVersion::Default
 
-    let mut painter = Painter::new().unwrap();
+    let mut painter = Painter::new(integration.pixels_per_point().f32()).unwrap();
 
     let font = inkview::open_font(inkview::get_default_font(inkview::FontType::Std), 10, 1);
     
@@ -86,6 +86,6 @@ pub fn run_native<A: epi::App>(mut app: Box<A>, native_options: epi::NativeOptio
         }
 
         inkview::process_event_loop();
-        std::thread::sleep(std::time::Duration::from_millis(1000 / 30));
+        //std::thread::sleep(std::time::Duration::from_millis(1000 / 30));
     }
 }

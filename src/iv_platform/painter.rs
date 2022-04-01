@@ -1,6 +1,5 @@
 #![allow(unsafe_code)]
 
-use std::collections::HashMap;
 
 use egui::{
     emath::Rect,
@@ -8,8 +7,8 @@ use egui::{
 };
 use epaint::ClippedShape;
 
-use super::inkview as iv;
-
+use super::{inkview as iv, epi_backend::pixels_per_point32};
+use super::convert::{from_iv, to_iv};
 
 pub struct Painter {
     max_texture_side: usize,
@@ -18,7 +17,7 @@ pub struct Painter {
     /// The filter used for subsequent textures.
     texture_filter: TextureFilter,
     //post_process: Option<PostProcess>,
-
+    pixels_per_point: f32,
     //textures: HashMap<egui::TextureId, glow::Texture>,
 
     
@@ -64,9 +63,14 @@ impl Painter {
     /// * failed to compile shader
     /// * failed to create postprocess on webgl with `sRGB` support
     /// * failed to create buffer
-    pub fn new() -> Result<Painter, String> {
+    pub fn new(pixels_per_point: f32) -> Result<Painter, String> {
 
-        Ok(Self { destroyed: false, max_texture_side: 1000, srgb_support: true, texture_filter: TextureFilter::Linear })
+        Ok(Self { 
+            destroyed: false, max_texture_side: 1000, 
+            srgb_support: true, 
+            texture_filter: TextureFilter::Linear, 
+            pixels_per_point: pixels_per_point 
+        })
 
         /*
         check_for_gl_error(gl, "before Painter::new");
@@ -212,84 +216,32 @@ impl Painter {
         self.max_texture_side
     }
 
-    /*
-    unsafe fn prepare_painting(
-        &mut self,
-        [width_in_pixels, height_in_pixels]: [u32; 2],
-        gl: &glow::Context,
-        pixels_per_point: f32,
-    ) -> (u32, u32) {
-        gl.enable(glow::SCISSOR_TEST);
-        // egui outputs mesh in both winding orders
-        gl.disable(glow::CULL_FACE);
-
-        gl.enable(glow::BLEND);
-        gl.blend_equation(glow::FUNC_ADD);
-        gl.blend_func_separate(
-            // egui outputs colors with premultiplied alpha:
-            glow::ONE,
-            glow::ONE_MINUS_SRC_ALPHA,
-            // Less important, but this is technically the correct alpha blend function
-            // when you want to make use of the framebuffer alpha (for screenshots, compositing, etc).
-            glow::ONE_MINUS_DST_ALPHA,
-            glow::ONE,
-        );
-
-        let width_in_points = width_in_pixels as f32 / pixels_per_point;
-        let height_in_points = height_in_pixels as f32 / pixels_per_point;
-
-        gl.viewport(0, 0, width_in_pixels as i32, height_in_pixels as i32);
-        gl.use_program(Some(self.program));
-
-        gl.uniform_2_f32(Some(&self.u_screen_size), width_in_points, height_in_points);
-        gl.uniform_1_i32(Some(&self.u_sampler), 0);
-        gl.active_texture(glow::TEXTURE0);
-        self.vertex_array.bind_vertex_array(gl);
-
-        gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(self.element_array_buffer));
-
-        (width_in_pixels, height_in_pixels)
-    } */
-
-    pub fn emath_pos_to_iv_vec(pos: emath::Pos2) -> iv::VecI32 {
-        iv::VecI32 { x: pos.x as i32, y: pos.y as i32 }
-    }
-
-    pub fn emath_rect_to_iv(rect: emath::Rect) -> iv::Rect {
-        iv::Rect { pos: Self::emath_pos_to_iv_vec(rect.min), size: iv::VecUSize { x: (rect.max.x - rect.min.x) as usize, y: (rect.max.y - rect.min.y) as usize } }
-    }
-
-    pub fn epaint_color_to_iv(color: epaint::Color32) -> iv::Color32 {
-        iv::Color32::rgb(color.r(), color.g(), color.b())
-    }
-
-    pub fn paint_shape<'f>(&mut self, shape: ClippedShape, font: &iv::Font<'f>) {
+    pub fn paint_shape<'f>(&mut self, shape: ClippedShape, font: &iv::Font<'f>) -> Option<iv::Rect> {
         match shape.1 {
             egui::Shape::Noop => todo!(),
             egui::Shape::Vec(_) => todo!(),
             egui::Shape::Circle(circle) => {
-                iv::draw_circle_quarter(
-                    &Painter::emath_pos_to_iv_vec(circle.center), 
-                    circle.radius as u32, 
+                Some(iv::draw_circle_quarter(
+                    to_iv::emath_pos(circle.center, self.pixels_per_point), 
+                    circle.radius as usize, 
                     iv::Style::from_bits_truncate(iv::Style::default().bits() | iv::Style::FILL_INSIDE.bits()), 
                     circle.stroke.width as u32, 
-                    Self::epaint_color_to_iv(circle.stroke.color), 
-                    Self::epaint_color_to_iv(circle.fill)
-                )
+                    to_iv::epaint_color(circle.stroke.color), 
+                    to_iv::epaint_color(circle.fill)
+                ))
             },
             egui::Shape::LineSegment { points, stroke } => todo!(),
             egui::Shape::Path(path) => todo!(),
             egui::Shape::Rect(rect) => {
-
-                iv::draw_frame_certified_ex(
-                    &Self::emath_rect_to_iv(rect.rect), 
+                Some(iv::draw_frame_certified_ex(
+                    to_iv::emath_rect(rect.rect, self.pixels_per_point), 
                     1, // rect.stroke.width as i32, 
-                    &iv::Side::default(),
-                    &iv::Style::from_bits_truncate(iv::Style::default().bits() | iv::Style::FILL_INSIDE.bits()), 
+                    iv::Side::default(),
+                    iv::Style::from_bits_truncate(iv::Style::default().bits() | iv::Style::FILL_INSIDE.bits()), 
                     0, 
-                    iv::Color32::BLACK, // Self::epaint_color_to_iv(rect.stroke.color), 
-                    iv::Color32::BLACK //Self::epaint_color_to_iv(rect.fill)
-                );
+                    to_iv::epaint_color(rect.stroke.color), 
+                    to_iv::epaint_color(rect.fill)
+                ))
             }
             egui::Shape::Text(text) => {
                 let galley = text.galley.as_ref();
@@ -304,11 +256,12 @@ impl Painter {
 
                     //println!("f.family: {}", f.family);
 
-                    iv::set_font(font, Self::epaint_color_to_iv(text.override_text_color.unwrap_or(Color32::from_rgb(255, 255, 255))));
+                    iv::set_font(font, to_iv::epaint_color(text.override_text_color.unwrap_or(Color32::from_rgb(255, 255, 255))));
                 
-                    iv::draw_text_rect(Self::emath_rect_to_iv(translated_rect), job.text.as_str(), 0);
+                    Some(iv::draw_text_rect(to_iv::emath_rect(translated_rect, self.pixels_per_point), job.text.as_str(), 0).0)
+                } else {
+                    None
                 }
-
                
                 //iv::draw_string(Self::emath_pos_to_iv_vec(text.pos), job.text.as_str());
             },
@@ -380,11 +333,11 @@ impl Painter {
 
         for s in clipped_shapes {
             //println!("\tshape: {:?}");
-            self.paint_shape(s, font)
+            if let Some(update_rect) = self.paint_shape(s, font) {
+                iv::dynamic_update(iv::DynamicUpdateType::A2(iv::update_type::A2), update_rect)
+            }
         }
-
-        iv::full_update(&iv::FullSoftUpdateType::Normal(iv::update_type::Normal))
-
+        
         //self.paint_meshes(gl, inner_size, pixels_per_point, clipped_meshes);
 
         //for &id in &textures_delta.free {

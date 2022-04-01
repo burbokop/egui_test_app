@@ -3,7 +3,9 @@ use epaint::{Vec2, Pos2};
 use epi::backend::{FrameData, RepaintSignal};
 use queues::{Queue, IsQueue};
 
-use super::inkview;
+use super::convert::from_iv;
+
+use super::inkview::{self as iv, NonZeroF32};
 
 pub struct EpiIntegration {
     pub frame: epi::Frame,
@@ -14,7 +16,7 @@ pub struct EpiIntegration {
     /// When set, it is time to quit
     quit: bool,
     can_drag_window: bool,
-    pixels_per_point: f32,
+    pixels_per_point: iv::NonZeroF32,
     event_q: Queue<Event>
 }
 
@@ -54,10 +56,10 @@ pub fn handle_app_output(app_output: epi::backend::AppOutput) {
 
 
 impl EpiIntegration {
-    pub fn new(storage: Option<Box<dyn epi::Storage>>, pixels_per_point: f32) -> Self {
+    pub fn new(storage: Option<Box<dyn epi::Storage>>, pixels_per_point: iv::NonZeroF32) -> Self {
         let egui_ctx = egui::Context::default();
 
-        println!("pixels_per_point: {}", pixels_per_point);
+        println!("pixels_per_point: {:?}", pixels_per_point);
         //*egui_ctx.memory() = load_egui_memory(storage.as_deref()).unwrap_or_default();
 
         //let prefer_dark_mode = prefer_dark_mode();
@@ -115,6 +117,8 @@ impl EpiIntegration {
         }
     }
 
+    pub fn pixels_per_point(&self) -> NonZeroF32 { self.pixels_per_point }
+
     /*
     pub fn warm_up(&mut self, app: &mut dyn epi::App, window: &winit::window::Window) {
         let saved_memory: egui::Memory = self.egui_ctx.memory().clone();
@@ -137,131 +141,129 @@ impl EpiIntegration {
     } else { false },
 */
 
-    pub fn convert_event_to_app<A: epi::App>(&mut self, app: &mut A, event: &inkview::Event) -> Option<egui::Event> {
+    pub fn convert_event_to_app<A: epi::App>(&mut self, app: &mut A, event: &iv::Event) -> Option<egui::Event> {
 
-        println!("event: {:?}, (ppp: {}) (sppp: {})", event, self.egui_ctx.pixels_per_point(), self.pixels_per_point);
+        //println!("event: {:?}, (ppp: {}) (sppp: {:?})", event, self.egui_ctx.pixels_per_point(), self.pixels_per_point);
         match event {
-            inkview::Event::Init => None,
-            inkview::Event::Exit => if app.on_exit_event() { 
+            iv::Event::Init => None,
+            iv::Event::Exit => if app.on_exit_event() { 
                 //inkview::clear_on_exit(); 
                 std::process::exit(0)
             } else { None },
-            inkview::Event::Show => None,
-            inkview::Event::Hide => None,
-            inkview::Event::KeyPress => todo!(),
-            inkview::Event::KeyRelease => todo!(),
-            inkview::Event::KeyRepeat => todo!(),
-            inkview::Event::KeyPressExt => todo!(),
-            inkview::Event::KeyReleaseExt => todo!(),
-            inkview::Event::KeyRepeatExt => todo!(),
-            inkview::Event::PointerUp { pos } => Some(egui::Event::Touch {
+            iv::Event::Show => None,
+            iv::Event::Hide => None,
+            iv::Event::KeyPress => todo!(),
+            iv::Event::KeyRelease => todo!(),
+            iv::Event::KeyRepeat => todo!(),
+            iv::Event::KeyPressExt => todo!(),
+            iv::Event::KeyReleaseExt => todo!(),
+            iv::Event::KeyRepeatExt => todo!(),
+            iv::Event::PointerUp { pos } => Some(egui::Event::Touch {
                 device_id: egui::TouchDeviceId(0),
                 id: egui::TouchId(0),
                 phase: egui::TouchPhase::End,
-                pos: Pos2::new(pos.x as f32 / self.egui_ctx.pixels_per_point(), pos.y as f32 / self.egui_ctx.pixels_per_point()),
+                pos: from_iv::emath_pos(*pos, self.pixels_per_point),
                 force: 1.,
             }),
-            inkview::Event::PointerDown { pos } => Some(egui::Event::Touch {
+            iv::Event::PointerDown { pos } => Some(egui::Event::Touch {
                 device_id: egui::TouchDeviceId(0),
                 id: egui::TouchId(0),
                 phase: egui::TouchPhase::Start,
-                pos: Pos2::new(pos.x as f32 / self.egui_ctx.pixels_per_point(), pos.y as f32 / self.egui_ctx.pixels_per_point()),
+                pos: from_iv::emath_pos(*pos, self.pixels_per_point),
                 force: 1.,
             }),
-            inkview::Event::PointerMove { pos } => {
-                inkview::draw_circle(pos.clone(), 1, inkview::Color32::GRAY);
-                println!("ptr move: self.egui_ctx.pixels_per_point(): {}", self.egui_ctx.pixels_per_point());
-                Some(egui::Event::PointerMoved(Pos2::new(pos.x as f32 / self.egui_ctx.pixels_per_point(), pos.y as f32 / self.egui_ctx.pixels_per_point())))
+            iv::Event::PointerMove { pos } => {
+                Some(egui::Event::PointerMoved(from_iv::emath_pos(*pos, self.pixels_per_point)))
             },
-            inkview::Event::Scroll => todo!(),
-            inkview::Event::PointerLong { pos } => { println!("\tlong: {:?}", pos); None },
-            inkview::Event::PointerHold { pos } => { println!("\thold: {:?}", pos); None },
-            inkview::Event::PointerDrag { pos } => { println!("\tdrag: {:?}", pos); None },
-            inkview::Event::PointerCancel { pos } => { println!("\tcancel: {:?}", pos); None },
-            inkview::Event::PointerChanged { pos } => { println!("\tchanged: {:?}", pos); None },
-            inkview::Event::Orientation => todo!(),
-            inkview::Event::Focus => todo!(),
-            inkview::Event::Unfocus => todo!(),
-            inkview::Event::Activate => todo!(),
-            inkview::Event::MtSync => None,
-            inkview::Event::TouchUp => todo!(),
-            inkview::Event::TouchDown => todo!(),
-            inkview::Event::TouchMove => todo!(),
-            inkview::Event::Repaint => todo!(),
-            inkview::Event::QnMove => todo!(),
-            inkview::Event::QnReleaseEASE => todo!(),
-            inkview::Event::QnBorder => todo!(),
-            inkview::Event::Snapshot => todo!(),
-            inkview::Event::Fsincoming => todo!(),
-            inkview::Event::Fschanged => todo!(),
-            inkview::Event::MpStatechanged => todo!(),
-            inkview::Event::MpTrackchanged => todo!(),
-            inkview::Event::Prevpage => todo!(),
-            inkview::Event::Nextpage => todo!(),
-            inkview::Event::Opendic => todo!(),
-            inkview::Event::ControlPanelAboutToOpen => todo!(),
-            inkview::Event::Update => todo!(),
-            inkview::Event::PanelBluetoothA2dp => todo!(),
-            inkview::Event::Tab => todo!(),
-            inkview::Event::Panel => todo!(),
-            inkview::Event::PanelIcon => todo!(),
-            inkview::Event::PanelText => todo!(),
-            inkview::Event::PanelProgress => todo!(),
-            inkview::Event::PanelMplayer => todo!(),
-            inkview::Event::PanelUsbdrive => todo!(),
-            inkview::Event::PanelNetwork => todo!(),
-            inkview::Event::PanelClock => todo!(),
-            inkview::Event::PanelBluetooth => todo!(),
-            inkview::Event::PanelTasklist => todo!(),
-            inkview::Event::PanelObreeySync => todo!(),
-            inkview::Event::PanelSetreadingmode => todo!(),
-            inkview::Event::PanelSetreadingmodeInvert => todo!(),
-            inkview::Event::PanelFrontLight => todo!(),
-            inkview::Event::GlobalRequest => todo!(),
-            inkview::Event::GlobalAction => todo!(),
-            inkview::Event::Foreground => None,
-            inkview::Event::Background => None,
-            inkview::Event::SubTaskClose => todo!(),
-            inkview::Event::ConfigChanged => todo!(),
-            inkview::Event::SaveState => todo!(),
-            inkview::Event::ObreeyConfigChanged => todo!(),
-            inkview::Event::Sdin => todo!(),
-            inkview::Event::Sdout => todo!(),
-            inkview::Event::UsbStoreIn => todo!(),
-            inkview::Event::UsbStoreOut => todo!(),
-            inkview::Event::BtRxComplete => todo!(),
-            inkview::Event::BtTxComplete => todo!(),
-            inkview::Event::SynthEnded => todo!(),
-            inkview::Event::DicClosedARD => todo!(),
-            inkview::Event::ShowKeyboard => todo!(),
-            inkview::Event::TextClear => todo!(),
-            inkview::Event::ExtKb => todo!(),
-            inkview::Event::Letter => todo!(),
-            inkview::Event::Callback => todo!(),
-            inkview::Event::ScanProgress => todo!(),
-            inkview::Event::StopScan => todo!(),
-            inkview::Event::StartScan => todo!(),
-            inkview::Event::ScanStopped => todo!(),
-            inkview::Event::PostponeTimedPowerOff => todo!(),
-            inkview::Event::FrameActivated => todo!(),
-            inkview::Event::FrameDeactivated => todo!(),
-            inkview::Event::ReadProgressChanged => todo!(),
-            inkview::Event::DumpBitmapsDebugInfo => todo!(),
-            inkview::Event::NetConnected => todo!(),
-            inkview::Event::NetDisconnected => todo!(),
-            inkview::Event::NetFoundNewFw => todo!(),
-            inkview::Event::SynthPosition => todo!(),
-            inkview::Event::AsyncTaskFinished => todo!(),
-            inkview::Event::StopPlaying => todo!(),
-            inkview::Event::AvrcpCommand => todo!(),
-            inkview::Event::AudioChanged => todo!(),
-            inkview::Event::PackageJobChanged => todo!(),
-            inkview::Event::Custom => todo!(),
+            iv::Event::Scroll => todo!(),
+            iv::Event::PointerLong { pos } => { None },
+            iv::Event::PointerHold { pos } => { None },
+            iv::Event::PointerDrag { pos } => { None },
+            iv::Event::PointerCancel { pos } => { None },
+            iv::Event::PointerChanged { pos } => { None },
+            iv::Event::Orientation => todo!(),
+            iv::Event::Focus => todo!(),
+            iv::Event::Unfocus => todo!(),
+            iv::Event::Activate => todo!(),
+            iv::Event::MtSync => None,
+            iv::Event::TouchUp => todo!(),
+            iv::Event::TouchDown => todo!(),
+            iv::Event::TouchMove => todo!(),
+            iv::Event::Repaint => todo!(),
+            iv::Event::QnMove => todo!(),
+            iv::Event::QnReleaseEASE => todo!(),
+            iv::Event::QnBorder => todo!(),
+            iv::Event::Snapshot => todo!(),
+            iv::Event::Fsincoming => todo!(),
+            iv::Event::Fschanged => todo!(),
+            iv::Event::MpStatechanged => todo!(),
+            iv::Event::MpTrackchanged => todo!(),
+            iv::Event::Prevpage => todo!(),
+            iv::Event::Nextpage => todo!(),
+            iv::Event::Opendic => todo!(),
+            iv::Event::ControlPanelAboutToOpen => todo!(),
+            iv::Event::Update => todo!(),
+            iv::Event::PanelBluetoothA2dp => todo!(),
+            iv::Event::Tab => todo!(),
+            iv::Event::Panel => todo!(),
+            iv::Event::PanelIcon => todo!(),
+            iv::Event::PanelText => todo!(),
+            iv::Event::PanelProgress => todo!(),
+            iv::Event::PanelMplayer => todo!(),
+            iv::Event::PanelUsbdrive => todo!(),
+            iv::Event::PanelNetwork => todo!(),
+            iv::Event::PanelClock => todo!(),
+            iv::Event::PanelBluetooth => todo!(),
+            iv::Event::PanelTasklist => todo!(),
+            iv::Event::PanelObreeySync => todo!(),
+            iv::Event::PanelSetreadingmode => todo!(),
+            iv::Event::PanelSetreadingmodeInvert => todo!(),
+            iv::Event::PanelFrontLight => todo!(),
+            iv::Event::GlobalRequest => todo!(),
+            iv::Event::GlobalAction => todo!(),
+            iv::Event::Foreground => None,
+            iv::Event::Background => None,
+            iv::Event::SubTaskClose => todo!(),
+            iv::Event::ConfigChanged => todo!(),
+            iv::Event::SaveState => todo!(),
+            iv::Event::ObreeyConfigChanged => todo!(),
+            iv::Event::Sdin => todo!(),
+            iv::Event::Sdout => todo!(),
+            iv::Event::UsbStoreIn => todo!(),
+            iv::Event::UsbStoreOut => todo!(),
+            iv::Event::BtRxComplete => todo!(),
+            iv::Event::BtTxComplete => todo!(),
+            iv::Event::SynthEnded => todo!(),
+            iv::Event::DicClosedARD => todo!(),
+            iv::Event::ShowKeyboard => todo!(),
+            iv::Event::TextClear => todo!(),
+            iv::Event::ExtKb => todo!(),
+            iv::Event::Letter => todo!(),
+            iv::Event::Callback => todo!(),
+            iv::Event::ScanProgress => todo!(),
+            iv::Event::StopScan => todo!(),
+            iv::Event::StartScan => todo!(),
+            iv::Event::ScanStopped => todo!(),
+            iv::Event::PostponeTimedPowerOff => todo!(),
+            iv::Event::FrameActivated => todo!(),
+            iv::Event::FrameDeactivated => todo!(),
+            iv::Event::ReadProgressChanged => todo!(),
+            iv::Event::DumpBitmapsDebugInfo => todo!(),
+            iv::Event::NetConnected => todo!(),
+            iv::Event::NetDisconnected => todo!(),
+            iv::Event::NetFoundNewFw => todo!(),
+            iv::Event::SynthPosition => todo!(),
+            iv::Event::AsyncTaskFinished => todo!(),
+            iv::Event::StopPlaying => todo!(),
+            iv::Event::AvrcpCommand => todo!(),
+            iv::Event::AudioChanged => todo!(),
+            iv::Event::PackageJobChanged => todo!(),
+            iv::Event::Custom => todo!(),
         }
     }
 
 
-    pub fn on_event<A: epi::App>(&mut self, app: &mut A, event: &inkview::Event) -> bool {
+    pub fn on_event<A: epi::App>(&mut self, app: &mut A, event: &iv::Event) -> bool {
 
         let e = self.convert_event_to_app(app, event);
 
@@ -293,9 +295,9 @@ impl EpiIntegration {
         let raw_input = egui::RawInput { 
             screen_rect: Some(egui::Rect::from_min_size(
                 Default::default(), 
-                emath::Vec2::new(inkview::screen_width().unwrap() as f32, inkview::screen_width().unwrap() as f32)
+                emath::Vec2::new(iv::screen_width().unwrap() as f32, iv::screen_width().unwrap() as f32)
             )),            
-            pixels_per_point: Some(self.pixels_per_point),
+            pixels_per_point: Some(self.pixels_per_point.f32()),
             events: events,
             ..Default::default() 
         };

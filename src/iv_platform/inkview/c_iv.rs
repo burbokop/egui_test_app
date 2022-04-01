@@ -72,6 +72,10 @@ extern "C" {
     pub(super) fn PartialUpdateDU4(x: c_int, y: c_int, w: c_int, h: c_int);
     pub(super) fn DynamicUpdate(x: c_int, y: c_int, w: c_int, h: c_int);
     pub(super) fn DynamicUpdateBW(x: c_int, y: c_int, w: c_int, h: c_int);
+    pub(super) fn DynamicUpdateA2(x: c_int, y: c_int, w: c_int, h: c_int);
+    pub(super) fn ExitUpdateA2();
+    pub(super) fn IsInA2Update() -> c_int;
+
 
     pub(super) fn DrawCircle(x0: c_int, y0: c_int, radius: c_int, color: c_int);
 

@@ -87,19 +87,19 @@ pub fn set_hard_timer<F: FnMut()>(name: &str, f: F, ms: u32) {
     unsafe { c_iv::SetHardTimerEx(name.as_ptr() as *const c_char, Some(set_hard_timer_handler), cb as *mut _ as *mut c_void, ms as i32) }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct VecI32 {
     pub x: i32,
     pub y: i32
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct VecUSize {
     pub x: usize,
     pub y: usize
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Rect {
     pub pos: VecI32,
     pub size: VecUSize,
@@ -221,6 +221,7 @@ pub mod update_type {
     pub struct Black;
     pub struct BW;
     pub struct DU4;
+    pub struct A2;
 }
 
 pub enum FullSoftUpdateType {
@@ -263,15 +264,49 @@ pub fn partial_update(tp: &PartialUpdateType, x: usize, y: usize, w: usize, h: u
 pub enum DynamicUpdateType {
     Normal(update_type::Normal),
     BW(update_type::BW),
+    A2(update_type::A2)
 }
 
-pub fn dynamic_update(tp: &DynamicUpdateType, x: usize, y: usize, w: usize, h: usize) {
+pub fn dynamic_update(tp: DynamicUpdateType, update_rect: Rect) {
     match tp {
-        DynamicUpdateType::Normal(_) => unsafe { c_iv::DynamicUpdate(x as c_int, y as c_int, w as c_int, h as c_int) },
-        DynamicUpdateType::BW(_) => unsafe { c_iv::DynamicUpdateBW(x as c_int, y as c_int, w as c_int, h as c_int) },
+        DynamicUpdateType::Normal(_) => unsafe { 
+            c_iv::DynamicUpdate(
+                update_rect.pos.x as c_int, 
+                update_rect.pos.y as c_int, 
+                update_rect.size.x as c_int, 
+                update_rect.size.y as c_int
+            ) 
+        },
+        DynamicUpdateType::BW(_) => unsafe { 
+            c_iv::DynamicUpdateBW(
+                update_rect.pos.x as c_int, 
+                update_rect.pos.y as c_int, 
+                update_rect.size.x as c_int, 
+                update_rect.size.y as c_int
+            ) 
+        },
+        DynamicUpdateType::A2(_) => unsafe {
+            c_iv::DynamicUpdateA2(
+                update_rect.pos.x as c_int, 
+                update_rect.pos.y as c_int, 
+                update_rect.size.x as c_int, 
+                update_rect.size.y as c_int
+            )
+        }
     }
 }
 
+pub fn exit_update_a2() {
+    unsafe { c_iv::ExitUpdateA2() }
+}
+
+pub fn is_in_a2_update() -> bool {
+    unsafe { c_iv::IsInA2Update() > 0 }
+}
+
+
+
+/// ARGB32 format
 #[derive(Debug, Copy, Clone)]
 pub struct Color32(pub u32);
 
@@ -283,27 +318,35 @@ impl Color32 {
     pub const fn rgb(red: u8, green: u8, blue: u8) -> Self {
         Self(((blue as u32) << 16) + ((green as u32) << 8) + red as u32)
     }
+    pub const fn a(&self) -> u8 { (self.0 >> 24) as u8 }
+    pub const fn r(&self) -> u8 { (self.0 >> 16) as u8 }
+    pub const fn g(&self) -> u8 { (self.0 >> 8) as u8 }
+    pub const fn b(&self) -> u8 { (self.0 >> 0) as u8 }
 }
 
-pub fn draw_circle(position: &VecI32, radius: i32, color: Color32) {
+pub fn draw_circle(position: VecI32, radius: i32, color: Color32) {
     unsafe { c_iv::DrawCircle(position.x, position.y, radius, color.0 as c_int) }
 }
 
-pub fn draw_circle_quarter(pos: &VecI32, radius: u32, style: Style, thickness: u32, color: Color32, bg_color: Color32) {
+pub fn draw_circle_quarter(center: VecI32, radius: usize, style: Style, thickness: u32, color: Color32, bg_color: Color32) -> Rect {
     unsafe { 
         c_iv::DrawCircleQuarter(
-            pos.x, 
-            pos.y, 
+            center.x, 
+            center.y, 
             radius as c_int, 
             style.bits as c_int, 
             thickness as c_int, 
             color.0 as c_int, 
             bg_color.0 as c_int
-        )
+        );
+    }
+    Rect { 
+        pos: VecI32 { x: center.x - radius as i32, y: center.y - radius as i32 }, 
+        size: VecUSize { x: radius * 2, y: radius * 2 } 
     }
 }
 
-pub fn fill_area(rect: &Rect, color: Color32) {
+pub fn fill_area(rect: Rect, color: Color32) {
     unsafe { c_iv::FillArea(rect.pos.x, rect.pos.y, rect.size.x as c_int, rect.size.y as c_int, color.0 as c_int) }
 }
 
@@ -328,14 +371,14 @@ pub fn draw_rect(rect: Rect, color: Color32) {
 }
 
 pub fn draw_frame_certified_ex(
-    rect: &Rect, 
+    rect: Rect, 
     thickness: c_int /*enum edef_thickness*/, 
-    sides: &Side, 
-    style: &Style,
+    sides: Side, 
+    style: Style,
     radius: usize, 
     color: Color32, 
     bg_color: Color32
-) {
+) -> Rect {
     unsafe {
         c_iv::DrawFrameCertifiedEx(
             rect.pos.x, 
@@ -348,8 +391,9 @@ pub fn draw_frame_certified_ex(
             radius as c_int, 
             color.0 as c_int, 
             bg_color.0 as c_int
-        )
+        );
     }
+    rect
 }
 
 #[derive(Debug)]
@@ -431,8 +475,8 @@ pub fn minimal_text_rect_width(w: usize, s: &str) -> usize {
     unsafe { c_iv::MinimalTextRectWidth(w as c_int, s.as_ptr() as *const c_char) as usize }
 }
 
-pub fn draw_text_rect(rect: Rect, s: &str, flags: i32) -> &CStr {
+pub fn draw_text_rect(rect: Rect, s: &str, flags: i32) -> (Rect, &CStr) {
     unsafe {         
-        CStr::from_ptr(c_iv::DrawTextRect(rect.pos.x, rect.pos.y, rect.size.x as c_int, rect.size.y as c_int, s.as_ptr() as *const c_char, flags))
-    }
+        (rect, CStr::from_ptr(c_iv::DrawTextRect(rect.pos.x, rect.pos.y, rect.size.x as c_int, rect.size.y as c_int, s.as_ptr() as *const c_char, flags)))
+    }    
 }
