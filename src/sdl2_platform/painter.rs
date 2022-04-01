@@ -285,7 +285,9 @@ impl Painter {
                 canvas.filled_circle::<ColorRGBA>(circle.center.x as i16, circle.center.y as i16, circle.radius as i16, circle.stroke.color.into()).unwrap();
                 canvas.circle::<ColorRGBA>(circle.center.x as i16, circle.center.y as i16, circle.radius as i16, circle.fill.into()).unwrap();
             },
-            egui::Shape::LineSegment { points, stroke } => todo!(),
+            egui::Shape::LineSegment { points, stroke } => {
+                canvas.line::<ColorRGBA>(points[0].x as i16, points[0].y as i16, points[1].x as i16, points[1].y as i16, stroke.color.into()).unwrap()
+            },
             egui::Shape::Path(path) => todo!(),
             egui::Shape::Rect(rect) => {
                 canvas.set_draw_color::<ColorRGBA>(rect.fill.into());

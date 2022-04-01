@@ -15,7 +15,6 @@ pub fn create_storage(_app_name: &str) -> Option<Box<dyn epi::Storage>> {
     None
 }
 
-
 pub fn clipped_mesh_from_shape(shape: ClippedShape) -> Option<ClippedMesh> {
     match shape.1 {
         egui::Shape::Mesh(mesh) => Some(ClippedMesh(shape.0, mesh)),
@@ -67,7 +66,7 @@ pub fn run_native<A: epi::App>(mut app: Box<A>, native_options: epi::NativeOptio
 
     //&mut canvas, 1., ShaderVersion::Default
 
-    let mut painter = Painter::new(integration.pixels_per_point().f32()).unwrap();
+    let mut painter = Painter::new(integration.pixels_per_point().f32());
 
     let font = inkview::open_font(inkview::get_default_font(inkview::FontType::Std), 10, 1);
     
@@ -80,12 +79,11 @@ pub fn run_native<A: epi::App>(mut app: Box<A>, native_options: epi::NativeOptio
             shapes,
         } = integration.update(app.as_mut());
 
-
         if needs_repaint {
-            painter.paint_and_update_textures(shapes, &textures_delta, &mut canvas, &font);
+            painter.paint_and_update_textures(&mut canvas, shapes, &textures_delta, &font);
         }
 
         inkview::process_event_loop();
-        //std::thread::sleep(std::time::Duration::from_millis(1000 / 30));
+        std::thread::sleep(std::time::Duration::from_millis(1000 / 30));
     }
 }

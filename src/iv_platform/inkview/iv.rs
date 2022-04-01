@@ -93,34 +93,94 @@ pub struct VecI32 {
     pub y: i32
 }
 
+impl VecI32 {
+    pub fn min(self, other: VecI32) -> VecI32 {
+        VecI32 {
+            x: self.x.min(other.x),
+            y: self.y.min(other.y),
+        }
+    }
+    pub fn max(self, other: VecI32) -> VecI32 {
+        VecI32 {
+            x: self.x.max(other.x),
+            y: self.y.max(other.y),
+        }
+    }
+    pub fn to_u32(self) -> Option<VecU32> {
+        if self.x >= 0 && self.y >= 0 {
+            Some(VecU32 { x: self.x as u32, y: self.y as u32 })
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
-pub struct VecUSize {
-    pub x: usize,
-    pub y: usize
+pub struct VecU32 {
+    pub x: u32,
+    pub y: u32
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct Rect {
     pub pos: VecI32,
-    pub size: VecUSize,
+    pub size: VecU32,
+}
+
+impl Rect {
+    pub fn from_points_auto_flip(pos0: VecI32, pos1: VecI32) -> Self {
+        let size = VecU32 {
+            x: (pos0.x - pos1.x).abs() as u32,
+            y: (pos0.y - pos1.y).abs() as u32
+        };
+        let pos = VecI32 {
+            x: pos0.x.min(pos1.x),
+            y: pos0.y.min(pos1.y),
+        };
+        Rect { pos: pos, size: size }
+    }
+
+    pub fn from_points(pos0: VecI32, pos1: VecI32) -> Option<Self> {
+        VecI32 {
+            x: pos1.x - pos0.x,
+            y: pos1.y - pos0.y
+        }.to_u32().map(|size| Rect { pos: pos0, size: size })
+    }
+
+
+    pub fn lt(self) -> VecI32 { self.pos }
+    pub fn rt(self) -> VecI32 { VecI32 { x: self.pos.x + self.size.x as i32, y: self.pos.y } }
+    pub fn lb(self) -> VecI32 { VecI32 { x: self.pos.x, y: self.pos.y + self.size.y as i32 } }
+    pub fn rb(self) -> VecI32 { VecI32 { x: self.pos.x + self.size.x as i32, y: self.pos.y + self.size.y as i32 } }
+
+    pub fn clip(&self, clip_rect: Rect) -> Option<Rect> {
+        Rect::from_points(
+            self.pos.max(clip_rect.pos), 
+            self.rb().min(clip_rect.rb())
+        )
+    }
 }
 
 #[repr(C)]
 pub struct Canvas<'a> {
-	pub width: usize,
-	pub height: usize,
+    pub size: VecU32,
     pub scanline: usize,
     pub depth: usize,
     pub clip_rect: Rect,
     pub pixels: &'a mut [u8],
 }
 
+impl<'a> Canvas<'a> {
+    pub fn x_mul(&self) -> usize {
+        self.depth >> 3
+    }
+}
+
 
 impl<'a> Debug for Canvas<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Canvas")
-            .field("width", &self.width)
-            .field("height", &self.height)
+            .field("size", &self.size)
             .field("scanline", &self.scanline)
             .field("depth", &self.depth)
             .field("clip_rect", &self.clip_rect)
@@ -195,8 +255,10 @@ pub fn get_screen_scale_factor() -> Result<f64, Error> {
 pub fn get_canvas() -> Canvas<'static> {
     let cvs = unsafe { &mut*c_iv::GetCanvas() };
     Canvas { 
-        width: cvs.width as usize, 
-        height: cvs.height as usize, 
+        size: VecU32 {
+            x: cvs.width as u32, 
+            y: cvs.height as u32,     
+        },
         scanline: cvs.scanline as usize,
         depth: cvs.depth as usize, 
         clip_rect: Rect { 
@@ -204,9 +266,9 @@ pub fn get_canvas() -> Canvas<'static> {
                 x: cvs.clipx1, 
                 y: cvs.clipy1 
             }, 
-            size: VecUSize { 
-                x: (cvs.clipx2 - cvs.clipx1) as usize, 
-                y: (cvs.clipy2 - cvs.clipy1) as usize 
+            size: VecU32 { 
+                x: (cvs.clipx2 - cvs.clipx1) as u32, 
+                y: (cvs.clipy2 - cvs.clipy1) as u32 
             } 
         },
         pixels: unsafe { 
@@ -311,24 +373,32 @@ pub fn is_in_a2_update() -> bool {
 pub struct Color32(pub u32);
 
 impl Color32 {
-    pub const BLACK: Color32 = Color32(0x000000);
-    pub const GRAY: Color32 = Color32(0x888888);
-    pub const WHITE: Color32 = Color32(0xffffff);
+    pub const BLACK: Color32 = Color32(0xff000000);
+    pub const GRAY: Color32 = Color32(0xff888888);
+    pub const WHITE: Color32 = Color32(0xffffffff);
+    
+    pub const TRANSPERENT: Color32 = Color32(0x00000000);
 
     pub const fn rgb(red: u8, green: u8, blue: u8) -> Self {
         Self(((blue as u32) << 16) + ((green as u32) << 8) + red as u32)
     }
+
     pub const fn a(&self) -> u8 { (self.0 >> 24) as u8 }
     pub const fn r(&self) -> u8 { (self.0 >> 16) as u8 }
     pub const fn g(&self) -> u8 { (self.0 >> 8) as u8 }
     pub const fn b(&self) -> u8 { (self.0 >> 0) as u8 }
+
+    pub const fn avr(&self) -> u8 { ((self.r() as u16 + self.g() as u16 + self.b() as u16) / 3) as u8 }
+    pub const fn a_avr(&self) -> u8 { ((self.a() as u16 + self.r() as u16 + self.g() as u16 + self.b() as u16) / 4) as u8 }
+
+    pub const fn is_transperent(&self) -> bool { self.a() == 0 }
 }
 
 pub fn draw_circle(position: VecI32, radius: i32, color: Color32) {
     unsafe { c_iv::DrawCircle(position.x, position.y, radius, color.0 as c_int) }
 }
 
-pub fn draw_circle_quarter(center: VecI32, radius: usize, style: Style, thickness: u32, color: Color32, bg_color: Color32) -> Rect {
+pub fn draw_circle_quarter(center: VecI32, radius: u32, style: Style, thickness: u32, color: Color32, bg_color: Color32) -> Rect {
     unsafe { 
         c_iv::DrawCircleQuarter(
             center.x, 
@@ -342,7 +412,7 @@ pub fn draw_circle_quarter(center: VecI32, radius: usize, style: Style, thicknes
     }
     Rect { 
         pos: VecI32 { x: center.x - radius as i32, y: center.y - radius as i32 }, 
-        size: VecUSize { x: radius * 2, y: radius * 2 } 
+        size: VecU32 { x: radius * 2, y: radius * 2 } 
     }
 }
 
@@ -350,12 +420,13 @@ pub fn fill_area(rect: Rect, color: Color32) {
     unsafe { c_iv::FillArea(rect.pos.x, rect.pos.y, rect.size.x as c_int, rect.size.y as c_int, color.0 as c_int) }
 }
 
-pub fn draw_pixel(x: c_int, y: c_int, color: c_int) {
-
+pub fn draw_pixel(pos: VecI32, color: Color32) {
+    unsafe { c_iv::DrawPixel(pos.x, pos.y, color.0 as c_int) }
 }
 
-pub fn draw_line(x1: c_int, y1: c_int, x2: c_int, y2: c_int, color: c_int) {
-
+pub fn draw_line(pos0: VecI32, pos1: VecI32, color: Color32) -> Rect {
+    unsafe { c_iv::DrawLine(pos0.x, pos0.y, pos1.x, pos1.y, color.0 as c_int); }
+    Rect::from_points_auto_flip(pos0, pos1)
 }
 
 pub fn draw_line_ex(x1: c_int, y1: c_int, x2: c_int, y2: c_int, color: c_int, step: c_int) {
@@ -380,6 +451,13 @@ pub fn draw_frame_certified_ex(
     bg_color: Color32
 ) -> Rect {
     unsafe {
+        c_iv::FillArea(
+            rect.pos.x + thickness, 
+            rect.pos.y + thickness, 
+            rect.size.x as c_int - thickness * 2, 
+            rect.size.y as c_int - thickness * 2, 
+            bg_color.0 as c_int
+        );
         c_iv::DrawFrameCertifiedEx(
             rect.pos.x, 
             rect.pos.y, 
@@ -467,7 +545,7 @@ pub fn text_rect_height(width: usize, s: &str, flags: i32) -> c_int {
     unsafe { c_iv::TextRectHeight(width as c_int, s .as_ptr() as *const c_char, flags) }
 }
 
-pub fn text_rect_height_ex(size: VecUSize, s: &str, flags: i32) -> c_int {
+pub fn text_rect_height_ex(size: VecU32, s: &str, flags: i32) -> c_int {
     unsafe { c_iv::TextRectHeightEx(size.x as c_int, size.y as c_int, s.as_ptr() as *const c_char, flags) }
 }
 

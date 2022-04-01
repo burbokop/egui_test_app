@@ -12,236 +12,73 @@ use super::convert::{from_iv, to_iv};
 
 pub struct Painter {
     max_texture_side: usize,
-
     srgb_support: bool,
-    /// The filter used for subsequent textures.
-    texture_filter: TextureFilter,
-    //post_process: Option<PostProcess>,
     pixels_per_point: f32,
-    //textures: HashMap<egui::TextureId, glow::Texture>,
-
-    
-    /// Stores outdated OpenGL textures that are yet to be deleted
-    //textures_to_destroy: Vec<glow::Texture>,
-
-    /// Used to make sure we are destroyed correctly.
     destroyed: bool,
 }
 
-#[derive(Copy, Clone)]
-pub enum TextureFilter {
-    Linear,
-    Nearest,
-}
-
-impl Default for TextureFilter {
-    fn default() -> Self {
-        TextureFilter::Linear
-    }
-}
-
-impl TextureFilter {
-    pub(crate) fn glow_code(&self) -> u32 {
-        0
-        //match self {
-        //    TextureFilter::Linear => glow::LINEAR,
-        //    TextureFilter::Nearest => glow::NEAREST,
-        //}
-    }
-}
-
 impl Painter {
-    /// Create painter.
-    ///
-    /// Set `pp_fb_extent` to the framebuffer size to enable `sRGB` support on OpenGL ES and WebGL.
-    ///
-    /// Set `shader_prefix` if you want to turn on shader workaround e.g. `"#define APPLY_BRIGHTENING_GAMMA\n"`
-    /// (see <https://github.com/emilk/egui/issues/794>).
-    ///
-    /// # Errors
-    /// will return `Err` below cases
-    /// * failed to compile shader
-    /// * failed to create postprocess on webgl with `sRGB` support
-    /// * failed to create buffer
-    pub fn new(pixels_per_point: f32) -> Result<Painter, String> {
-
-        Ok(Self { 
-            destroyed: false, max_texture_side: 1000, 
+    pub fn new(pixels_per_point: f32) -> Self {
+        Self { 
+            destroyed: false, 
+            max_texture_side: 1000, 
             srgb_support: true, 
-            texture_filter: TextureFilter::Linear, 
             pixels_per_point: pixels_per_point 
-        })
-
-        /*
-        check_for_gl_error(gl, "before Painter::new");
-
-        let max_texture_side = unsafe { gl.get_parameter_i32(glow::MAX_TEXTURE_SIZE) } as usize;
-
-        let support_vao = crate::misc_util::supports_vao(gl);
-        let shader_version = ShaderVersion::get(gl);
-        let is_webgl_1 = shader_version == ShaderVersion::Es100;
-        let header = shader_version.version();
-        tracing::debug!("Shader header: {:?}.", header);
-        let srgb_support = gl.supported_extensions().contains("EXT_sRGB");
-
-        let (post_process, srgb_support_define) = match (shader_version, srgb_support) {
-            // WebGL2 support sRGB default
-            (ShaderVersion::Es300, _) | (ShaderVersion::Es100, true) => unsafe {
-                // Add sRGB support marker for fragment shader
-                if let Some([width, height]) = pp_fb_extent {
-                    tracing::debug!("WebGL with sRGB enabled. Turning on post processing for linear framebuffer blending.");
-                    // install post process to correct sRGB color:
-                    (
-                        Some(PostProcess::new(
-                            gl,
-                            shader_prefix,
-                            support_vao,
-                            is_webgl_1,
-                            width,
-                            height,
-                        )?),
-                        "#define SRGB_SUPPORTED",
-                    )
-                } else {
-                    tracing::debug!("WebGL or OpenGL ES detected but PostProcess disabled because dimension is None");
-                    (None, "")
-                }
-            },
-
-            // WebGL1 without sRGB support disable postprocess and use fallback shader
-            (ShaderVersion::Es100, false) => (None, ""),
-
-            // OpenGL 2.1 or above always support sRGB so add sRGB support marker
-            _ => (None, "#define SRGB_SUPPORTED"),
-        };
- */
-/*
-            let vert = compile_shader(
-                gl,
-                glow::VERTEX_SHADER,
-                &format!(
-                    "{}\n{}\n{}\n{}",
-                    header,
-                    shader_prefix,
-                    shader_version.is_new_shader_interface(),
-                    VERT_SRC
-                ),
-            )?;
-            let frag = compile_shader(
-                gl,
-                glow::FRAGMENT_SHADER,
-                &format!(
-                    "{}\n{}\n{}\n{}\n{}",
-                    header,
-                    shader_prefix,
-                    srgb_support_define,
-                    shader_version.is_new_shader_interface(),
-                    FRAG_SRC
-                ),
-            )?;
-            let program = link_program(gl, [vert, frag].iter())?;
-            gl.detach_shader(program, vert);
-            gl.detach_shader(program, frag);
-            gl.delete_shader(vert);
-            gl.delete_shader(frag);
-            let u_screen_size = gl.get_uniform_location(program, "u_screen_size").unwrap();
-            let u_sampler = gl.get_uniform_location(program, "u_sampler").unwrap();
-            let vertex_buffer = gl.create_buffer()?;
-            let element_array_buffer = gl.create_buffer()?;
-            gl.bind_buffer(glow::ARRAY_BUFFER, Some(vertex_buffer));
-            let a_pos_loc = gl.get_attrib_location(program, "a_pos").unwrap();
-            let a_tc_loc = gl.get_attrib_location(program, "a_tc").unwrap();
-            let a_srgba_loc = gl.get_attrib_location(program, "a_srgba").unwrap();
-            let mut vertex_array = if support_vao {
-                crate::misc_util::VAO::native(gl)
-            } else {
-                crate::misc_util::VAO::emulated()
-            };
-            vertex_array.bind_vertex_array(gl);
-            vertex_array.bind_buffer(gl, &vertex_buffer);
-            let stride = std::mem::size_of::<Vertex>() as i32;
-            let position_buffer_info = vao_emulate::BufferInfo {
-                location: a_pos_loc,
-                vector_size: 2,
-                data_type: glow::FLOAT,
-                normalized: false,
-                stride,
-                offset: offset_of!(Vertex, pos) as i32,
-            };
-            let tex_coord_buffer_info = vao_emulate::BufferInfo {
-                location: a_tc_loc,
-                vector_size: 2,
-                data_type: glow::FLOAT,
-                normalized: false,
-                stride,
-                offset: offset_of!(Vertex, uv) as i32,
-            };
-            let color_buffer_info = vao_emulate::BufferInfo {
-                location: a_srgba_loc,
-                vector_size: 4,
-                data_type: glow::UNSIGNED_BYTE,
-                normalized: false,
-                stride,
-                offset: offset_of!(Vertex, color) as i32,
-            };
-            vertex_array.add_new_attribute(gl, position_buffer_info);
-            vertex_array.add_new_attribute(gl, tex_coord_buffer_info);
-            vertex_array.add_new_attribute(gl, color_buffer_info);
-            check_for_gl_error(gl, "after Painter::new");
-
-            Ok(Painter {
-                max_texture_side,
-                program,
-                u_screen_size,
-                u_sampler,
-                is_webgl_1,
-                is_embedded: matches!(shader_version, ShaderVersion::Es100 | ShaderVersion::Es300),
-                vertex_array,
-                srgb_support,
-                texture_filter: Default::default(),
-                post_process,
-                vertex_buffer,
-                element_array_buffer,
-                textures: Default::default(),
-                #[cfg(feature = "epi")]
-                next_native_tex_id: 1 << 32,
-                textures_to_destroy: Vec::new(),
-                destroyed: false,
-            })
         }
-        */
     }
 
     pub fn max_texture_side(&self) -> usize {
         self.max_texture_side
     }
 
-    pub fn paint_shape<'f>(&mut self, shape: ClippedShape, font: &iv::Font<'f>) -> Option<iv::Rect> {
+    pub fn paint_shape<'f, D: iv::Draw>(&mut self, draw: &mut D, shape: ClippedShape, font: &iv::Font<'f>) -> Option<iv::Rect> {
         match shape.1 {
             egui::Shape::Noop => todo!(),
             egui::Shape::Vec(_) => todo!(),
             egui::Shape::Circle(circle) => {
+                println!("circle.fill: {:?}", circle.fill);
+
                 Some(iv::draw_circle_quarter(
                     to_iv::emath_pos(circle.center, self.pixels_per_point), 
-                    circle.radius as usize, 
+                    circle.radius as u32, 
                     iv::Style::from_bits_truncate(iv::Style::default().bits() | iv::Style::FILL_INSIDE.bits()), 
                     circle.stroke.width as u32, 
                     to_iv::epaint_color(circle.stroke.color), 
-                    to_iv::epaint_color(circle.fill)
+                    iv::Color32::BLACK //to_iv::epaint_color(circle.fill)
                 ))
             },
-            egui::Shape::LineSegment { points, stroke } => todo!(),
+            egui::Shape::LineSegment { points, stroke } => {
+                Some(iv::draw_line(
+                    to_iv::emath_pos(points[0], self.pixels_per_point), 
+                    to_iv::emath_pos(points[1], self.pixels_per_point), 
+                    to_iv::epaint_color(stroke.color)
+                ))
+            },
             egui::Shape::Path(path) => todo!(),
             egui::Shape::Rect(rect) => {
+
+                Some(draw.draw_rect(
+                    to_iv::emath_rect(rect.rect, self.pixels_per_point), 
+                    8,//rect.stroke.width as u32,
+                    5, //rect.rounding.nw as u32,
+                    12, //rect.rounding.ne as u32,
+                    15, //rect.rounding.sw as u32,
+                    20, //rect.rounding.se as u32,
+                    iv::Color32(0xff222222),// to_iv::epaint_color(rect.fill),
+                    iv::Color32(0xff888888),// to_iv::epaint_color(rect.stroke.color), 
+                    iv::Color32(0xffaaaaaa),
+                ))
+/*
                 Some(iv::draw_frame_certified_ex(
                     to_iv::emath_rect(rect.rect, self.pixels_per_point), 
-                    1, // rect.stroke.width as i32, 
+                    8, // rect.stroke.width as i32, 
                     iv::Side::default(),
                     iv::Style::from_bits_truncate(iv::Style::default().bits() | iv::Style::FILL_INSIDE.bits()), 
-                    0, 
+                    8, 
                     to_iv::epaint_color(rect.stroke.color), 
                     to_iv::epaint_color(rect.fill)
                 ))
+                 */
             }
             egui::Shape::Text(text) => {
                 let galley = text.galley.as_ref();
@@ -272,11 +109,11 @@ impl Painter {
     }
 
     
-    pub fn paint_and_update_textures<'f>(
+    pub fn paint_and_update_textures<'f, D: iv::Draw>(
         &mut self,
+        draw: &mut D,
         clipped_shapes: Vec<epaint::ClippedShape>,
         textures_delta: &egui::TexturesDelta,
-        canvas: &mut iv::Canvas<'_>,
         font: &iv::Font<'f>
     ) {
 
@@ -333,7 +170,7 @@ impl Painter {
 
         for s in clipped_shapes {
             //println!("\tshape: {:?}");
-            if let Some(update_rect) = self.paint_shape(s, font) {
+            if let Some(update_rect) = self.paint_shape(draw, s, font) {
                 iv::dynamic_update(iv::DynamicUpdateType::A2(iv::update_type::A2), update_rect)
             }
         }

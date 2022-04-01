@@ -1,6 +1,6 @@
 
 
-use std::ops::DerefMut;
+use std::{ops::DerefMut, convert::identity};
 
 use egui::{ClippedMesh};
 use epaint::ClippedShape;
@@ -21,10 +21,9 @@ pub fn clipped_mesh_from_shape(shape: ClippedShape) -> Option<ClippedMesh> {
     }
 }
 
-pub fn run_native<A: epi::App>(app: Box<A>, native_options: epi::NativeOptions) -> ! {
+pub fn run_native<A: epi::App>(mut app: Box<A>, native_options: epi::NativeOptions) -> ! {
     //println!("debug: {:?} -> {:?}", app, native_options.initial_window_pos);
 
-    let mut app_mut = app;
 
     let mut integration = super::epi_integration::EpiIntegration::new(None);
 
@@ -52,50 +51,24 @@ pub fn run_native<A: epi::App>(app: Box<A>, native_options: epi::NativeOptions) 
     
 
     loop {
-        for event in event_pump.poll_iter() {
-            integration.on_event(app_mut.deref_mut(), &event)
-        }
-
-
-
+        let events: Vec<egui::Event> = event_pump
+            .poll_iter()
+            .map(|event| integration.on_event(app.deref_mut(), &event))
+            .filter_map(identity)
+            .collect();
+            
         let egui::FullOutput {
             platform_output,
             needs_repaint,
             textures_delta,
             shapes,
-        } = integration.update(app_mut.as_mut(), w, h);
-
+        } = integration.update(app.as_mut(), w, h, events);
 
         if needs_repaint {
-
             painter.paint_and_update_textures(shapes, &textures_delta, &mut canvas);
-
-/*
-            for (id, image_delta) in &textures_delta.set {
-                let p = &image_delta.pos;
-    
-                match &image_delta.image {
-                    egui::ImageData::Color(image) => {
-                        println!("\tcolor image: {:?}", image.size);
-                    },
-                    egui::ImageData::Alpha(image) => {
-                        println!("\talpha image: {:?}", image.size);
-
-                        let a = shapes.iter().cloned().map(clipped_mesh_from_shape).filter_map(identity);
-
-                        //painter.paint_jobs(Some(Color32::GRAY), a.collect(), 0, &image)
-
-
-                    }
-                }
-            }
-*/
-
         }
 
-        println!("needs_repaint: {:?}", needs_repaint);
-
-        std::thread::sleep(std::time::Duration::from_millis(100));
+        std::thread::sleep(std::time::Duration::from_millis(1000 / 30));
     }
     //inkview::clear_on_exit()
 }

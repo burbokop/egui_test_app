@@ -1,3 +1,4 @@
+use epaint::Pos2;
 use epi::backend::{FrameData, RepaintSignal};
 
 
@@ -116,21 +117,94 @@ impl EpiIntegration {
         self.quit
     }
 
-    
-    pub fn on_event(&mut self, app: &mut dyn epi::App, event: &sdl2::event::Event) {
+    pub fn convert_event_to_app<A: epi::App>(&mut self, app: &mut A, event: &sdl2::event::Event) -> Option<egui::Event> {
         match event {
-            sdl2::event::Event::Quit { timestamp } => { if app.on_exit_event() { std::process::exit(0) } },
-            sdl2::event::Event::MouseButtonDown { timestamp, window_id, which, mouse_btn, clicks, x, y } => self.can_drag_window = true,
-            _ => {}
+            sdl2::event::Event::Quit { timestamp } => { if app.on_exit_event() { std::process::exit(0) } None },
+            sdl2::event::Event::AppTerminating { timestamp } => todo!(),
+            sdl2::event::Event::AppLowMemory { timestamp } => todo!(),
+            sdl2::event::Event::AppWillEnterBackground { timestamp } => todo!(),
+            sdl2::event::Event::AppDidEnterBackground { timestamp } => todo!(),
+            sdl2::event::Event::AppWillEnterForeground { timestamp } => todo!(),
+            sdl2::event::Event::AppDidEnterForeground { timestamp } => todo!(),
+            sdl2::event::Event::Display { timestamp, display_index, display_event } => todo!(),
+            sdl2::event::Event::Window { timestamp, window_id, win_event } => None,
+            sdl2::event::Event::KeyDown { timestamp, window_id, keycode, scancode, keymod, repeat } => todo!(),
+            sdl2::event::Event::KeyUp { timestamp, window_id, keycode, scancode, keymod, repeat } => todo!(),
+            sdl2::event::Event::TextEditing { timestamp, window_id, text, start, length } => todo!(),
+            sdl2::event::Event::TextInput { timestamp, window_id, text } => todo!(),
+            sdl2::event::Event::MouseMotion { timestamp, window_id, which, mousestate, x, y, xrel, yrel } => {
+                Some(egui::Event::PointerMoved(Pos2::new(*x as f32, *y as f32)))
+            },
+            sdl2::event::Event::MouseButtonDown { timestamp, window_id, which, mouse_btn, clicks, x, y } => {
+                Some(egui::Event::PointerButton {
+                    pos: Pos2::new(*x as f32, *y as f32),
+                    button: match mouse_btn {
+                        sdl2::mouse::MouseButton::Left => egui::PointerButton::Primary,
+                        sdl2::mouse::MouseButton::Middle => egui::PointerButton::Middle,
+                        sdl2::mouse::MouseButton::Right => egui::PointerButton::Secondary,
+                        _ => egui::PointerButton::Primary,
+                    },
+                    pressed: true,
+                    modifiers: egui::Modifiers::default(),
+                })
+            },
+            sdl2::event::Event::MouseButtonUp { timestamp, window_id, which, mouse_btn, clicks, x, y } => {
+                Some(egui::Event::PointerButton {
+                    pos: Pos2::new(*x as f32, *y as f32),
+                    button: match mouse_btn {
+                        sdl2::mouse::MouseButton::Left => egui::PointerButton::Primary,
+                        sdl2::mouse::MouseButton::Middle => egui::PointerButton::Middle,
+                        sdl2::mouse::MouseButton::Right => egui::PointerButton::Secondary,
+                        _ => egui::PointerButton::Primary,
+                    },
+                    pressed: false,
+                    modifiers: egui::Modifiers::default(),
+                })
+            },
+            sdl2::event::Event::MouseWheel { timestamp, window_id, which, x, y, direction } => todo!(),
+            sdl2::event::Event::JoyAxisMotion { timestamp, which, axis_idx, value } => todo!(),
+            sdl2::event::Event::JoyBallMotion { timestamp, which, ball_idx, xrel, yrel } => todo!(),
+            sdl2::event::Event::JoyHatMotion { timestamp, which, hat_idx, state } => todo!(),
+            sdl2::event::Event::JoyButtonDown { timestamp, which, button_idx } => todo!(),
+            sdl2::event::Event::JoyButtonUp { timestamp, which, button_idx } => todo!(),
+            sdl2::event::Event::JoyDeviceAdded { timestamp, which } => todo!(),
+            sdl2::event::Event::JoyDeviceRemoved { timestamp, which } => todo!(),
+            sdl2::event::Event::ControllerAxisMotion { timestamp, which, axis, value } => todo!(),
+            sdl2::event::Event::ControllerButtonDown { timestamp, which, button } => todo!(),
+            sdl2::event::Event::ControllerButtonUp { timestamp, which, button } => todo!(),
+            sdl2::event::Event::ControllerDeviceAdded { timestamp, which } => todo!(),
+            sdl2::event::Event::ControllerDeviceRemoved { timestamp, which } => todo!(),
+            sdl2::event::Event::ControllerDeviceRemapped { timestamp, which } => todo!(),
+            sdl2::event::Event::FingerDown { timestamp, touch_id, finger_id, x, y, dx, dy, pressure } => todo!(),
+            sdl2::event::Event::FingerUp { timestamp, touch_id, finger_id, x, y, dx, dy, pressure } => todo!(),
+            sdl2::event::Event::FingerMotion { timestamp, touch_id, finger_id, x, y, dx, dy, pressure } => todo!(),
+            sdl2::event::Event::DollarGesture { timestamp, touch_id, gesture_id, num_fingers, error, x, y } => todo!(),
+            sdl2::event::Event::DollarRecord { timestamp, touch_id, gesture_id, num_fingers, error, x, y } => todo!(),
+            sdl2::event::Event::MultiGesture { timestamp, touch_id, d_theta, d_dist, x, y, num_fingers } => todo!(),
+            sdl2::event::Event::ClipboardUpdate { timestamp } => todo!(),
+            sdl2::event::Event::DropFile { timestamp, window_id, filename } => todo!(),
+            sdl2::event::Event::DropText { timestamp, window_id, filename } => todo!(),
+            sdl2::event::Event::DropBegin { timestamp, window_id } => todo!(),
+            sdl2::event::Event::DropComplete { timestamp, window_id } => todo!(),
+            sdl2::event::Event::AudioDeviceAdded { timestamp, which, iscapture } => todo!(),
+            sdl2::event::Event::AudioDeviceRemoved { timestamp, which, iscapture } => todo!(),
+            sdl2::event::Event::RenderTargetsReset { timestamp } => todo!(),
+            sdl2::event::Event::RenderDeviceReset { timestamp } => todo!(),
+            sdl2::event::Event::User { timestamp, window_id, type_, code, data1, data2 } => todo!(),
+            sdl2::event::Event::Unknown { timestamp, type_ } => todo!(),
         }
-        //self.egui_winit.on_event(&self.egui_ctx, event);
+    }
+    
+    pub fn on_event<A: epi::App>(&mut self, app: &mut A, event: &sdl2::event::Event) -> Option<egui::Event> {
+        self.convert_event_to_app(app, event)
     }
 
     pub fn update(
         &mut self,
         app: &mut dyn epi::App,
         w: u32,
-        h: u32
+        h: u32,
+        events: Vec<egui::Event>
     ) -> egui::FullOutput {
         //let frame_start = instant::Instant::now();
 
@@ -140,6 +214,7 @@ impl EpiIntegration {
                 Default::default(), 
                 emath::Vec2::new(w as f32, h as f32)
             )),            
+            events: events,
             ..Default::default() 
         };
 

@@ -36,7 +36,7 @@ pub mod to_iv {
         let max = emath_pos(rect.max, pixels_per_point);
         iv::Rect { 
             pos: min, 
-            size: iv::VecUSize { x: (max.x - min.x) as usize, y: (max.y - min.y) as usize } 
+            size: iv::VecU32 { x: (max.x - min.x) as u32, y: (max.y - min.y) as u32 } 
         }
     }
 

@@ -158,27 +158,46 @@ impl EpiIntegration {
             iv::Event::KeyPressExt => todo!(),
             iv::Event::KeyReleaseExt => todo!(),
             iv::Event::KeyRepeatExt => todo!(),
-            iv::Event::PointerUp { pos } => Some(egui::Event::Touch {
-                device_id: egui::TouchDeviceId(0),
-                id: egui::TouchId(0),
-                phase: egui::TouchPhase::End,
-                pos: from_iv::emath_pos(*pos, self.pixels_per_point),
-                force: 1.,
-            }),
-            iv::Event::PointerDown { pos } => Some(egui::Event::Touch {
+            iv::Event::PointerUp { pos } => Some(
+                egui::Event::PointerButton {
+                    pos: from_iv::emath_pos(*pos, self.pixels_per_point),
+                    button: egui::PointerButton::Primary,
+                    pressed: false,
+                    modifiers: egui::Modifiers::default(),
+                }
+            ),
+            //Some(egui::Event::Touch {
+            //    device_id: egui::TouchDeviceId(0),
+            //    id: egui::TouchId(0),
+            //    phase: egui::TouchPhase::End,
+            //    pos: from_iv::emath_pos(*pos, self.pixels_per_point),
+            //    force: 1.,
+            //}),
+            iv::Event::PointerDown { pos } => Some(
+                egui::Event::PointerButton {
+                    pos: from_iv::emath_pos(*pos, self.pixels_per_point),
+                    button: egui::PointerButton::Primary,
+                    pressed: true,
+                    modifiers: egui::Modifiers::default(),
+                }
+            ),
+/*
+            Some(egui::Event::Touch {
                 device_id: egui::TouchDeviceId(0),
                 id: egui::TouchId(0),
                 phase: egui::TouchPhase::Start,
                 pos: from_iv::emath_pos(*pos, self.pixels_per_point),
                 force: 1.,
-            }),
+            }), */
             iv::Event::PointerMove { pos } => {
-                Some(egui::Event::PointerMoved(from_iv::emath_pos(*pos, self.pixels_per_point)))
+                None
             },
             iv::Event::Scroll => todo!(),
             iv::Event::PointerLong { pos } => { None },
             iv::Event::PointerHold { pos } => { None },
-            iv::Event::PointerDrag { pos } => { None },
+            iv::Event::PointerDrag { pos } => { 
+                Some(egui::Event::PointerMoved(from_iv::emath_pos(*pos, self.pixels_per_point)))
+            },
             iv::Event::PointerCancel { pos } => { None },
             iv::Event::PointerChanged { pos } => { None },
             iv::Event::Orientation => todo!(),
