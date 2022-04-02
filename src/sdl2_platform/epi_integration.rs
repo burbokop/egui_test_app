@@ -134,7 +134,7 @@ impl EpiIntegration {
             sdl2::event::Event::AppDidEnterForeground { timestamp } => todo!(),
             sdl2::event::Event::Display { timestamp, display_index, display_event } => todo!(),
             sdl2::event::Event::Window { timestamp, window_id, win_event } => None,
-            sdl2::event::Event::KeyDown { timestamp, window_id, keycode, scancode, keymod, repeat } => todo!(),
+            sdl2::event::Event::KeyDown { timestamp, window_id, keycode, scancode, keymod, repeat } => Some(egui::Event::KeyDown {}),
             sdl2::event::Event::KeyUp { timestamp, window_id, keycode, scancode, keymod, repeat } => todo!(),
             sdl2::event::Event::TextEditing { timestamp, window_id, text, start, length } => todo!(),
             sdl2::event::Event::TextInput { timestamp, window_id, text } => todo!(),
