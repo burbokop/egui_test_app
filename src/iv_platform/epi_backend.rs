@@ -46,7 +46,11 @@ pub fn run_native<A: epi::App>(mut app: Box<A>, native_options: epi::NativeOptio
     println!("AAAAA");
     println!("))): pixels_per_point32: {}", pixels_per_point32());
 
-    let mut integration = super::epi_integration::EpiIntegration::new(None, NonZeroF32::from_f32(pixels_per_point32()).unwrap());
+    let mut integration = super::epi_integration::EpiIntegration::new(
+        None, 
+        NonZeroF32::from_f32(pixels_per_point32()).unwrap(),
+        Some(false)
+    );
 
 
     inkview::prepare_for_loop_ex(|event| -> bool {

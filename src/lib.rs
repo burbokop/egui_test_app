@@ -4,7 +4,7 @@
 mod app;
 pub use app::TemplateApp;
 mod app2;
-pub use app::TemplateApp as TemplateApp2;
+pub use app2::Headlines as TemplateApp2;
 
 #[cfg(feature = "default")]
 pub mod iv_platform;

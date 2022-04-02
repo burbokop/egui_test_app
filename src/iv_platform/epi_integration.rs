@@ -1,7 +1,6 @@
 use std::time::Instant;
 
 use egui::Event;
-use epaint::{Vec2, Pos2};
 use epi::backend::{FrameData, RepaintSignal};
 use queues::{Queue, IsQueue};
 
@@ -58,13 +57,10 @@ pub fn handle_app_output(app_output: epi::backend::AppOutput) {
 
 
 impl EpiIntegration {
-    pub fn new(storage: Option<Box<dyn epi::Storage>>, pixels_per_point: iv::NonZeroF32) -> Self {
+    pub fn new(storage: Option<Box<dyn epi::Storage>>, pixels_per_point: iv::NonZeroF32, prefer_dark_mode: Option<bool>) -> Self {
         let egui_ctx = egui::Context::default();
 
         println!("pixels_per_point: {:?}", pixels_per_point);
-        //*egui_ctx.memory() = load_egui_memory(storage.as_deref()).unwrap_or_default();
-
-        //let prefer_dark_mode = prefer_dark_mode();
 
         #[derive(Default)]
         struct RS {
@@ -76,7 +72,6 @@ impl EpiIntegration {
                 println!("request_repaint")
             }
         }
-
 
         let frame = epi::Frame::new(FrameData {
             info: epi::IntegrationInfo {
@@ -90,24 +85,12 @@ impl EpiIntegration {
             repaint_signal: std::sync::Arc::from(RS::default()),
         });
  
-
-/*
         if prefer_dark_mode == Some(true) {
             egui_ctx.set_visuals(egui::Visuals::dark());
         } else {
             egui_ctx.set_visuals(egui::Visuals::light());
         }
-
-        Self {
-            frame,
-            last_auto_save: instant::Instant::now(),
-            egui_ctx,
-            egui_winit: crate::State::new(max_texture_side, window),
-            pending_full_output: Default::default(),
-            quit: false,
-            can_drag_window: false,
-        }
-         */
+ 
         Self { 
             can_drag_window: true, 
             egui_ctx: egui_ctx, 
@@ -316,7 +299,7 @@ impl EpiIntegration {
         let raw_input = egui::RawInput { 
             screen_rect: Some(egui::Rect::from_min_size(
                 Default::default(), 
-                emath::Vec2::new(iv::screen_width().unwrap() as f32, iv::screen_width().unwrap() as f32)
+                emath::Vec2::new(iv::screen_width().unwrap() as f32 / self.pixels_per_point, iv::screen_width().unwrap() as f32 / self.pixels_per_point)
             )),            
             pixels_per_point: Some(self.pixels_per_point.to_f32()),
             events: events,

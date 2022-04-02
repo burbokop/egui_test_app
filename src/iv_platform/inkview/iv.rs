@@ -152,6 +152,13 @@ impl Rect {
         Rect { pos: pos, size: size }
     }
 
+    pub fn from_radius(center: VecI32, radius: u32) -> Rect {
+        Rect {
+            pos: VecI32 { x: center.x - radius as i32, y: center.y - radius as i32 },
+            size: VecU32 { x: radius * 2, y: radius * 2 }
+        }
+    }
+
     pub fn from_points(pos0: VecI32, pos1: VecI32) -> Option<Self> {
         VecI32 {
             x: pos1.x - pos0.x,
@@ -217,6 +224,7 @@ impl<'a> Debug for Canvas<'a> {
 }
 
 use bitflags::bitflags;
+use epaint::Pos2;
 
 bitflags! {
     pub struct Style: u16 {

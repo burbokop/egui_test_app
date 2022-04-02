@@ -34,7 +34,7 @@ fn main() {
         match args[1].as_str() {
             "app0" => run( Box::new(MyApp::default()), epi::NativeOptions::default()),
             "app1" => run( Box::new(TemplateApp::default()), epi::NativeOptions::default()),
-            "app2" => run( Box::new(TemplateApp2::default()), epi::NativeOptions::default()),
+            "app2" => run( Box::new(TemplateApp2::new()), epi::NativeOptions::default()),
             _ => run(Box::new(MyApp::default()), epi::NativeOptions::default()),
         }
     } else {
@@ -59,6 +59,9 @@ impl Default for MyApp {
 
 impl epi::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, frame: &epi::Frame) {
+
+
+
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("My egui Application");
             ui.horizontal(|ui| {

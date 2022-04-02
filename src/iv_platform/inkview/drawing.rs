@@ -1,8 +1,5 @@
-use epaint::Pos2;
 
-use super::{Rect, Color32, VecI32, Canvas, fill_area};
-
-
+use super::{Rect, Color32, VecI32, Canvas};
 
 pub enum Quarter {
     LeftTop,
@@ -28,12 +25,22 @@ pub trait Draw {
         fill_color: Option<Color32>,
         border_color: Option<Color32>,
         external_color: Option<Color32>
-    ) -> Rect;
+    ) -> Option<Rect>;
 
     fn draw_circle_quarter(
         &mut self,
         pos: VecI32, 
         quarter: Quarter,
+        border_width: u32,
+        radius: u32,
+        internal_color: Option<Color32>, 
+        line_color: Option<Color32>, 
+        external_color: Option<Color32>
+    ) -> Option<Rect>;
+
+    fn draw_circle(
+        &mut self,
+        center: VecI32, 
         border_width: u32,
         radius: u32,
         internal_color: Option<Color32>, 
@@ -62,7 +69,7 @@ impl<'a> Draw for Canvas<'a> {
         fill_color: Option<Color32>,
         border_color: Option<Color32>,
         external_color: Option<Color32>
-    ) -> Rect {
+    ) -> Option<Rect> {
         if lt_radius > 0 {
             self.draw_circle_quarter(rect.lt(), Quarter::LeftTop, border_width, lt_radius, fill_color, border_color, external_color);
         }
@@ -122,7 +129,7 @@ impl<'a> Draw for Canvas<'a> {
             p0
         };
         fill_color.map(|c| self.fill_area(Rect::from_points_auto_flip(rt_point, lb_point), c));
-        rect
+        Some(rect)
     }
 
     fn draw_circle_quarter(
@@ -174,5 +181,26 @@ impl<'a> Draw for Canvas<'a> {
             }
             Some(rect)
         } else { None }
+    }
+
+    fn draw_circle(
+        &mut self,
+        center: VecI32, 
+        border_width: u32,
+        radius: u32,
+        internal_color: Option<Color32>, 
+        line_color: Option<Color32>, 
+        external_color: Option<Color32>
+    ) -> Option<Rect> {
+        if radius > 0 {
+            let rect = Rect::from_radius(center, radius);
+            self.draw_circle_quarter(rect.lt(), Quarter::LeftTop, border_width, radius, internal_color, line_color, external_color);
+            self.draw_circle_quarter(rect.rt(), Quarter::RightTop, border_width, radius, internal_color, line_color, external_color);
+            self.draw_circle_quarter(rect.lb(), Quarter::LeftBottom, border_width, radius, internal_color, line_color, external_color);
+            self.draw_circle_quarter(rect.rb(), Quarter::RightBottom, border_width, radius, internal_color, line_color, external_color);
+            Some(rect)
+        } else {
+            None
+        }
     }
 }

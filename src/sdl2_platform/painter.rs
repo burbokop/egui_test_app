@@ -279,7 +279,7 @@ impl Painter {
 
         match shape.1 {
             egui::Shape::Noop => todo!(),
-            egui::Shape::Vec(_) => todo!(),
+            egui::Shape::Vec(vec) => println!("vec.len(): {}", vec.len()),
             egui::Shape::Circle(circle) => {
 
                 canvas.filled_circle::<ColorRGBA>(circle.center.x as i16, circle.center.y as i16, circle.radius as i16, circle.stroke.color.into()).unwrap();
@@ -298,8 +298,6 @@ impl Painter {
             egui::Shape::Text(text) => {
                 let str = &text.galley.as_ref().job.as_ref().text;
 
-
-                
                 //inkview::set_font(font, Self::epaint_color_to_iv(text.override_text_color.unwrap_or(Color32::from_rgb(255, 255, 255))));
                 //inkview::draw_string(Self::emath_pos_to_iv_vec(text.pos), str.as_str());
             },

@@ -2,6 +2,7 @@
 
 
 use std::convert::identity;
+use std::time::Instant;
 
 use egui::{
     epaint::Color32,
@@ -58,15 +59,14 @@ impl Painter {
             egui::Shape::Noop => todo!(),
             egui::Shape::Vec(_) => todo!(),
             egui::Shape::Circle(circle) => {
-
-                Some(iv::draw_circle_quarter(
+                draw.draw_circle(
                     to_iv::emath_pos(circle.center, pixels_per_point), 
-                    circle.radius as u32, 
-                    iv::Style::from_bits_truncate(iv::Style::default().bits() | iv::Style::FILL_INSIDE.bits()), 
-                    circle.stroke.width as u32, 
-                    to_iv::epaint_color(circle.stroke.color), 
-                    iv::Color32::BLACK //to_iv::epaint_color(circle.fill)
-                ))
+                    circle.stroke.width as u32,
+                    circle.radius as u32,
+                    Some(to_iv::epaint_color(circle.fill)),
+                    Some(to_iv::epaint_color(circle.stroke.color)),
+                    None
+                )
             },
             egui::Shape::LineSegment { points, stroke } => {
                 Some(iv::draw_line(
@@ -77,7 +77,7 @@ impl Painter {
             },
             egui::Shape::Path(_) => todo!(),
             egui::Shape::Rect(rect) => {
-                Some(draw.draw_rect(
+                draw.draw_rect(
                     to_iv::emath_rect(rect.rect, pixels_per_point), 
                     rect.stroke.width as u32,
                     rect.rounding.nw as u32,
@@ -87,7 +87,7 @@ impl Painter {
                     Some(to_iv::epaint_color(rect.fill)),
                     Some(to_iv::epaint_color(rect.stroke.color)), 
                     None,
-                ))
+                )
             }
             egui::Shape::Text(text) => {
                 let galley = text.galley.as_ref();
@@ -116,11 +116,11 @@ impl Painter {
             egui::Shape::CubicBezier(_) => todo!(),
         };
 
-        match shape.1 {
-            epaint::Shape::Circle(s) => println!("\tdirty: {:?}, shape.Circle: {:?}", dirty, ur),
-            epaint::Shape::Rect(s) =>  println!("\tdirty: {:?}, shape.Rect: {:?}", dirty, ur),
-            _ => {}
-        }
+        //match shape.1 {
+        //    epaint::Shape::Circle(s) => println!("\tdirty: {:?}, shape.Circle: {:?}", dirty, ur),
+        //    epaint::Shape::Rect(s) =>  println!("\tdirty: {:?}, shape.Rect: {:?}", dirty, ur),
+        //    _ => {}
+        //}
 
         ur.and_then(|rect| if dirty { Some(rect) } else { None })
 
@@ -144,11 +144,11 @@ impl Painter {
                 egui::ImageData::Color(image) => {
 
                     //depth = 32
-                    println!("\tcolor image: {:?}", image.size);
+                    //println!("\tcolor image: {:?}", image.size);
                     [image.width(), image.height()]
                 },
                 egui::ImageData::Alpha(image) => {
-                    println!("\talpha image: {:?}", image.size);
+                    //println!("\talpha image: {:?}", image.size);
                     [image.width(), image.height()]
 
 /*
@@ -189,24 +189,31 @@ impl Painter {
 
         println!("PAINT");
 
-        let update_type = iv::update::Normal;
+        let painting_start = Instant::now();
+
+        let update_type = iv::update::A2;
 
         let mut dirty_count: usize = 0;
         let dirty_shapes = Self::mark_shape_dirty(clipped_shapes.clone(), &mut self.last_frame_clipped_shapes, &mut dirty_count);
         if dirty_count > 0 {
 
+
+            let paint_shapes_start = Instant::now();
+
             let update_rects: Vec<_> = dirty_shapes.into_iter()
                 .map(|s| Self::paint_shape(draw, s.0, s.1, self.pixels_per_point, font))
                 .filter_map(identity).collect();
 
-            println!("UPDATE LAST DIRTY RECTS");
+            println!("\tpaint shapes duration: {:?}", Instant::now() - paint_shapes_start);
+
+            //println!("UPDATE LAST DIRTY RECTS");
 
             for rect in &self.last_frame_update_rects {
-                println!("\tlfur: {:?}", rect);
+                //println!("\tlfur: {:?}", rect);
                 iv::dynamic_update(update_type.into(), *rect);
             }
 
-            println!("UPDATE CURRENT DIRTY RECTS");
+            //println!("UPDATE CURRENT DIRTY RECTS");
 
             self.last_frame_update_rects = update_rects.into_iter().map(|rect| {
                 iv::dynamic_update(update_type.into(), rect);
@@ -216,6 +223,9 @@ impl Painter {
             self.last_frame_clipped_shapes = clipped_shapes;
 
         }
+
+        println!("\tpainting duration: {:?}", Instant::now() - painting_start)
+
         //self.paint_meshes(gl, inner_size, pixels_per_point, clipped_meshes);
 
         //for &id in &textures_delta.free {

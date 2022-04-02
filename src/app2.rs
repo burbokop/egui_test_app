@@ -1,90 +1,147 @@
+use std::{iter::FromIterator};
 
-#[derive(Default)]
-struct MyApp {
-    dropped_files: Vec<egui::DroppedFile>,
-    picked_path: Option<String>,
+use egui::{FontData, WidgetText, TextStyle, FontDefinitions, Label, Layout, Hyperlink, Separator, TopBottomPanel, Button};
+use epaint::{Color32, FontFamily};
+
+pub const PADDING: f32 = 5.0;
+const WHITE: Color32 = Color32::from_rgb(255, 255, 255);
+const CYAN: Color32 = Color32::from_rgb(0, 255, 255);
+
+pub struct Headlines {
+    articles: Vec<NewsCardData>,
 }
 
-impl epi::App for MyApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &epi::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.label("Drag-and-drop files onto the window!");
+struct NewsCardData {
+    title: String,
+    desc: String,
+    url: String,
+}
 
-            if ui.button("Open file…").clicked() {
-                    self.picked_path = Some(String::from("/home/ivan/workspace/projects/egui_app/Cargo.toml"));
-            }
-
-            if let Some(picked_path) = &self.picked_path {
-                ui.horizontal(|ui| {
-                    ui.label("Picked file:");
-                    ui.monospace(picked_path);
-                });
-            }
-
-            // Show dropped files (if any):
-            if !self.dropped_files.is_empty() {
-                ui.group(|ui| {
-                    ui.label("Dropped files:");
-
-                    for file in &self.dropped_files {
-                        let mut info = if let Some(path) = &file.path {
-                            path.display().to_string()
-                        } else if !file.name.is_empty() {
-                            file.name.clone()
-                        } else {
-                            "???".to_owned()
-                        };
-                        if let Some(bytes) = &file.bytes {
-                            info += &format!(" ({} bytes)", bytes.len());
-                        }
-                        ui.label(info);
-                    }
-                });
-            }
+impl Headlines {
+    pub fn new() -> Headlines {
+        let iter = (0..20).map(|a| NewsCardData {
+            title: format!("title{}", a),
+            desc: format!("desc{}", a),
+            url: format!("https://example.com/{}", a),
         });
+        Headlines {
+            articles: Vec::from_iter(iter),
+        }
+    }
 
-        self.detect_files_being_dropped(ctx);
+    pub fn configure_fonts(&self, ctx: &egui::Context) {
+        let mut font_def = FontDefinitions::default();
+        font_def.font_data.insert(
+            "MesloLGS".to_string(),
+            FontData::from_static(include_bytes!("MesloLGS_NF_Regular.ttf")),
+        );
+        //font_def.families.insert(
+        //    eframe::egui::TextStyle::Heading,
+        //    (FontFamily::Proportional, 35.),
+        //);
+        //font_def.family_and_size.insert(
+        //    eframe::egui::TextStyle::Body,
+        //    (FontFamily::Proportional, 20.),
+        //);
+        font_def
+            .families
+            .insert(FontFamily::Name("MesloLGS".into()), vec!["MesloLGS".to_string()]);
+
+        ctx.set_fonts(font_def);
+    }
+
+    pub fn render_news_cards(&self, ui: &mut egui::Ui) {
+        for a in &self.articles {
+            ui.add_space(PADDING);
+            // render title
+            let title = format!("▶ {}", a.title);
+            ui.colored_label(WHITE, title);
+            // render desc
+            ui.add_space(PADDING);
+            let desc = Label::new(&a.desc); //text_style(eframe::egui::TextStyle::Button);
+            ui.add(desc);
+
+            // render hyperlinks
+            ui.style_mut().visuals.hyperlink_color = CYAN;
+            ui.add_space(PADDING);
+            ui.with_layout(Layout::right_to_left(), |ui| {
+                ui.add(Hyperlink::from_label_and_url("read more ⤴", &a.url));
+            });
+            ui.add_space(PADDING);
+            ui.add(Separator::default());
+        }
+    }
+
+    pub(crate) fn render_top_panel(&self, ctx: &egui::Context) {
+        // define a TopBottomPanel widget
+        TopBottomPanel::top("top_panel").show(ctx, |ui| {
+            ui.add_space(10.);
+            egui::menu::bar(ui, |ui| {
+                // logo
+                ui.with_layout(Layout::left_to_right(), |ui| {
+                    ui.add(Label::new(egui::WidgetText::from("📓").text_style(egui::TextStyle::Heading)));
+                });
+                // controls
+                ui.with_layout(Layout::right_to_left(), |ui| {
+                    let close_btn = ui.add(Button::new(egui::WidgetText::from("❌").text_style(egui::TextStyle::Body)));
+                    let refresh_btn = ui.add(Button::new(egui::WidgetText::from("🔄").text_style(egui::TextStyle::Body)));
+                    let theme_btn = ui.add(Button::new(egui::WidgetText::from("🌙").text_style(egui::TextStyle::Body)));
+                });
+            });
+            ui.add_space(10.);
+        });
+    }
+}
+
+impl epi::App for Headlines {
+    fn setup(
+        &mut self, 
+        ctx: &egui::Context, 
+        frame: &epi::Frame, 
+        storage: Option<&dyn epi::Storage>
+    ) {
+        self.configure_fonts(ctx);
+    }
+    fn update(&mut self, ctx: &egui::Context, frame: &epi::Frame) {
+        self.render_top_panel(ctx);
+        egui::CentralPanel::default().show(ctx, |ui| {
+            render_header(ui);
+            egui::ScrollArea::vertical()
+                .stick_to_right()
+                .stick_to_bottom()
+                .show(ui, |ui| {
+                self.render_news_cards(ui);
+            });
+            render_footer(ctx);
+        });
     }
 
     fn name(&self) -> &str {
-        "TexmplateApp2"
+        "Headlines"
     }
 }
 
-impl MyApp {
-    fn detect_files_being_dropped(&mut self, ctx: &egui::Context) {
-        use egui::*;
-
-        // Preview hovering files:
-        if !ctx.input().raw.hovered_files.is_empty() {
-            let mut text = "Dropping files:\n".to_owned();
-            for file in &ctx.input().raw.hovered_files {
-                if let Some(path) = &file.path {
-                    text += &format!("\n{}", path.display());
-                } else if !file.mime.is_empty() {
-                    text += &format!("\n{}", file.mime);
-                } else {
-                    text += "\n???";
-                }
-            }
-
-            let painter =
-                ctx.layer_painter(LayerId::new(Order::Foreground, Id::new("file_drop_target")));
-
-            let screen_rect = ctx.input().screen_rect();
-            painter.rect_filled(screen_rect, 0.0, Color32::from_black_alpha(192));
-            painter.text(
-                screen_rect.center(),
-                Align2::CENTER_CENTER,
-                text,
-                TextStyle::Heading.resolve(&ctx.style()),
-                Color32::WHITE,
+fn render_footer(ctx: &egui::Context) {
+    TopBottomPanel::bottom("footer").show(ctx, |ui| {
+        ui.vertical_centered(|ui| {
+            ui.add_space(10.);
+            ui.add(Label::new("API source: newsapi.org"));
+            ui.add(
+                Hyperlink::from_label_and_url(WidgetText::from("Made with egui").text_style(TextStyle::Monospace), "https://github.com/emilk/egui")
             );
-        }
+            ui.add(
+                egui::Hyperlink::from_label_and_url(WidgetText::from("creativcoder/headlines").text_style(TextStyle::Monospace), "https://github.com/creativcoder/headlines")
+            );
+            ui.add_space(10.);
+        })
+    });
+}
 
-        // Collect dropped files:
-        if !ctx.input().raw.dropped_files.is_empty() {
-            self.dropped_files = ctx.input().raw.dropped_files.clone();
-        }
-    }
+fn render_header(ui: &mut egui::Ui) {
+    ui.vertical_centered(|ui| {
+        ui.heading("headlines");
+    });
+    ui.add_space(PADDING);
+    let sep = Separator::default().spacing(20.);
+    ui.add(sep);
 }
