@@ -11,6 +11,11 @@ fn links() {
 
 }
 
+#[cfg(feature = "use_sdl2")]
+fn links() {
+
+}
+
 fn main() {
     links();
     println!("cargo:rerun-if-changed=build.rs");
