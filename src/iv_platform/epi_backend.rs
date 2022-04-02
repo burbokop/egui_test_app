@@ -66,7 +66,7 @@ pub fn run_native<A: epi::App>(mut app: Box<A>, native_options: epi::NativeOptio
 
     //&mut canvas, 1., ShaderVersion::Default
 
-    let mut painter = Painter::new(integration.pixels_per_point().f32());
+    let mut painter = Painter::new(integration.pixels_per_point().to_f32());
 
     let font = inkview::open_font(inkview::get_default_font(inkview::FontType::Std), 10, 1);
     

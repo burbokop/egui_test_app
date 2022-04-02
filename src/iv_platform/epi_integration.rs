@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use egui::Event;
 use epaint::{Vec2, Pos2};
 use epi::backend::{FrameData, RepaintSignal};
@@ -82,7 +84,7 @@ impl EpiIntegration {
                 web_info: None,
                 prefer_dark_mode: Some(false),
                 cpu_usage: None,
-                native_pixels_per_point: Some(1.),
+                native_pixels_per_point: Some(pixels_per_point.to_f32()),
             },
             output: Default::default(),
             repaint_signal: std::sync::Arc::from(RS::default()),
@@ -301,7 +303,7 @@ impl EpiIntegration {
         &mut self,
         app: &mut dyn epi::App,
     ) -> egui::FullOutput {
-        //let frame_start = instant::Instant::now();
+        let frame_start = Instant::now();
 
 
         let mut events: Vec<egui::Event> = Vec::with_capacity(self.event_q.size());
@@ -316,7 +318,7 @@ impl EpiIntegration {
                 Default::default(), 
                 emath::Vec2::new(iv::screen_width().unwrap() as f32, iv::screen_width().unwrap() as f32)
             )),            
-            pixels_per_point: Some(self.pixels_per_point.f32()),
+            pixels_per_point: Some(self.pixels_per_point.to_f32()),
             events: events,
             ..Default::default() 
         };
@@ -340,8 +342,8 @@ impl EpiIntegration {
             handle_app_output(app_output);
         }
 
-        //let frame_time = (instant::Instant::now() - frame_start).as_secs_f64() as f32;
-        //self.frame.info.cpu_usage = Some(frame_time);
+        let frame_time = (Instant::now() - frame_start).as_secs_f64() as f32;
+        self.frame.lock().info.cpu_usage = Some(frame_time);
 
         full_output
     }

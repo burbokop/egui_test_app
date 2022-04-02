@@ -16,7 +16,7 @@ impl NonZeroF32 {
             Some(NonZeroF32(f))
         }
     }
-    pub fn f32(self) -> f32 { self.0 }
+    pub fn to_f32(self) -> f32 { self.0 }
 }
 
 impl Div<NonZeroF32> for f32 {
