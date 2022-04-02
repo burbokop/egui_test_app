@@ -10,19 +10,36 @@ fn main() {
 }
 */
 
+use egui_app::{TemplateApp, TemplateApp2};
+
 #[cfg(feature = "use_eframe")]
 fn run<A: epi::App + 'static>(app: Box<A>, native_options: epi::NativeOptions) -> ! {
     eframe::run_native(app, native_options);
-
 }
 
-#[cfg(not(feature = "use_eframe"))]
+#[cfg(feature = "use_sdl2")]
 fn run<A: epi::App>(app: Box<A>, native_options: epi::NativeOptions) -> ! {
-    egui_app::platform::run_native(app, native_options);
+    egui_app::sdl2_platform::run_native(app, native_options);
 }
 
-fn main() {    
-    run(Box::new(MyApp::default()), epi::NativeOptions::default());
+#[cfg(feature = "default")]
+fn run<A: epi::App>(app: Box<A>, native_options: epi::NativeOptions) -> ! {
+    egui_app::iv_platform::run_native(app, native_options);
+}
+
+fn main() {
+    let args: Vec<_> = std::env::args().collect();
+    println!("args: {:?}", args);
+    if args.len() > 1 {
+        match args[1].as_str() {
+            "app0" => run( Box::new(MyApp::default()), epi::NativeOptions::default()),
+            "app1" => run( Box::new(TemplateApp::default()), epi::NativeOptions::default()),
+            "app2" => run( Box::new(TemplateApp2::default()), epi::NativeOptions::default()),
+            _ => run(Box::new(MyApp::default()), epi::NativeOptions::default()),
+        }
+    } else {
+        run(Box::new(MyApp::default()), epi::NativeOptions::default())
+    }
 }
 
 #[derive(Debug)]

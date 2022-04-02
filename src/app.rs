@@ -56,10 +56,15 @@ impl epi::App for TemplateApp {
     fn update(&mut self, ctx: &egui::Context, frame: &epi::Frame) {
         let Self { label, value } = self;
 
+
         // Examples of how to create different panels and windows.
         // Pick whichever suits you.
         // Tip: a good default choice is to just keep the `CentralPanel`.
         // For inspiration and more examples, go to https://emilk.github.io/egui
+
+
+        
+
 
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             // The top panel is often a good place for a menu bar:

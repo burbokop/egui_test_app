@@ -8,9 +8,6 @@ use egui::{
 };
 use epaint::ClippedShape;
 
-use super::inkview;
-
-
 pub struct Painter {
     max_texture_side: usize,
 
@@ -48,6 +45,24 @@ impl TextureFilter {
         //    TextureFilter::Linear => glow::LINEAR,
         //    TextureFilter::Nearest => glow::NEAREST,
         //}
+    }
+}
+
+struct ColorRGBA(epaint::Color32);
+
+impl From<epaint::Color32> for ColorRGBA {
+    fn from(c: epaint::Color32) -> Self { Self(c) }
+}
+
+impl Into<sdl2::pixels::Color> for ColorRGBA {
+    fn into(self) -> sdl2::pixels::Color {
+        sdl2::pixels::Color::RGBA(self.0.r(), self.0.g(), self.0.b(), self.0.a())
+    }
+}
+
+impl sdl2::gfx::primitives::ToColor for ColorRGBA {
+    fn as_rgba(&self) -> (u8, u8, u8, u8) {
+        (self.0.r(), self.0.g(), self.0.b(), self.0.a())
     }
 }
 
@@ -251,32 +266,42 @@ impl Painter {
         (width_in_pixels, height_in_pixels)
     } */
 
-    pub fn emath_pos_to_iv_vec(pos: emath::Pos2) -> inkview::VecI32 {
-        inkview::VecI32 { x: pos.x as i32, y: pos.y as i32 }
+    pub fn emath_pos_to_sdl2_point(pos: emath::Pos2) -> sdl2::rect::Point {
+        sdl2::rect::Point::new(pos.x as i32, pos.y as i32)
     }
 
-    pub fn emath_rect_to_iv(rect: emath::Rect) -> inkview::Rect {
-        inkview::Rect { pos: Self::emath_pos_to_iv_vec(rect.min), size: inkview::VecUSize { x: (rect.max.x - rect.min.x) as usize, y: (rect.max.y - rect.min.y) as usize } }
+    pub fn emath_rect_to_sdl2(rect: emath::Rect) -> sdl2::rect::Rect {
+        sdl2::rect::Rect::new(rect.min.x as i32, rect.min.y as i32, (rect.max.x - rect.min.x) as u32, (rect.max.y - rect.min.y) as u32)
     }
 
-    pub fn epaint_color_to_iv(color: epaint::Color32) -> inkview::Color32 {
-        inkview::Color32::rgb(color.r(), color.g(), color.b())
-    }
+    pub fn paint_shape<T: sdl2::render::RenderTarget>(&mut self, shape: ClippedShape, canvas: &mut sdl2::render::Canvas<T>) {
+        use sdl2::gfx::primitives::DrawRenderer;
 
-    pub fn paint_shape<'f>(&mut self, shape: ClippedShape, font: &inkview::Font<'f>) {
         match shape.1 {
             egui::Shape::Noop => todo!(),
             egui::Shape::Vec(_) => todo!(),
-            egui::Shape::Circle(circle) => inkview::draw_circle(Painter::emath_pos_to_iv_vec(circle.center), circle.radius as i32, Self::epaint_color_to_iv(circle.fill)),
-            egui::Shape::LineSegment { points, stroke } => todo!(),
-            egui::Shape::Path(path) => todo!(),
-            egui::Shape::Rect(rect) => inkview::fill_area(Self::emath_rect_to_iv(rect.rect), Self::epaint_color_to_iv(rect.fill)),
-            egui::Shape::Text(text) => {
+            egui::Shape::Circle(circle) => {
 
+                canvas.filled_circle::<ColorRGBA>(circle.center.x as i16, circle.center.y as i16, circle.radius as i16, circle.stroke.color.into()).unwrap();
+                canvas.circle::<ColorRGBA>(circle.center.x as i16, circle.center.y as i16, circle.radius as i16, circle.fill.into()).unwrap();
+            },
+            egui::Shape::LineSegment { points, stroke } => {
+                canvas.line::<ColorRGBA>(points[0].x as i16, points[0].y as i16, points[1].x as i16, points[1].y as i16, stroke.color.into()).unwrap()
+            },
+            egui::Shape::Path(path) => todo!(),
+            egui::Shape::Rect(rect) => {
+                canvas.set_draw_color::<ColorRGBA>(rect.fill.into());
+                canvas.fill_rect(Self::emath_rect_to_sdl2(rect.rect)).unwrap();
+                canvas.set_draw_color::<ColorRGBA>(rect.stroke.color.into());
+                canvas.draw_rect(Self::emath_rect_to_sdl2(rect.rect)).unwrap();                
+            }
+            egui::Shape::Text(text) => {
                 let str = &text.galley.as_ref().job.as_ref().text;
 
-                inkview::set_font(font, Self::epaint_color_to_iv(text.override_text_color.unwrap_or(Color32::from_rgb(255, 255, 255))));
-                inkview::draw_string(Self::emath_pos_to_iv_vec(text.pos), str.as_str());
+
+                
+                //inkview::set_font(font, Self::epaint_color_to_iv(text.override_text_color.unwrap_or(Color32::from_rgb(255, 255, 255))));
+                //inkview::draw_string(Self::emath_pos_to_iv_vec(text.pos), str.as_str());
             },
             egui::Shape::Mesh(_) => todo!(),
             egui::Shape::QuadraticBezier(_) => todo!(),
@@ -285,12 +310,11 @@ impl Painter {
     }
 
     
-    pub fn paint_and_update_textures<'f>(
+    pub fn paint_and_update_textures<T: sdl2::render::RenderTarget>(
         &mut self,
         clipped_shapes: Vec<epaint::ClippedShape>,
         textures_delta: &egui::TexturesDelta,
-        canvas: &mut inkview::Canvas<'_>,
-        font: &inkview::Font<'f>
+        canvas: &mut sdl2::render::Canvas<T>
     ) {
 
         for (id, image_delta) in &textures_delta.set {
@@ -305,8 +329,9 @@ impl Painter {
                 },
                 egui::ImageData::Alpha(image) => {
                     println!("\talpha image: {:?}", image.size);
+                    [image.width(), image.height()]
 
-
+/*
                     let unwraped_pos = image_delta.pos.unwrap_or([0, 0]);
 
                     let end_pos = [
@@ -333,8 +358,11 @@ impl Painter {
                     );
 
                     [image.width(), image.height()]
+                     */
                 },
             };
+
+            
             
 
             println!("\timage_delta: {:?}, {:?}", p, s)
@@ -342,10 +370,10 @@ impl Painter {
 
         for s in clipped_shapes {
             //println!("\tshape: {:?}");
-            self.paint_shape(s, font)
+            self.paint_shape(s, canvas)
         }
 
-        inkview::full_update(inkview::FullSoftUpdateType::Normal(inkview::update_type::Normal))
+        canvas.present();
 
         //self.paint_meshes(gl, inner_size, pixels_per_point, clipped_meshes);
 

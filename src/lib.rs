@@ -3,6 +3,11 @@
 
 mod app;
 pub use app::TemplateApp;
+mod app2;
+pub use app::TemplateApp as TemplateApp2;
 
-#[cfg(not(feature = "use_eframe"))]
-pub mod platform;
+#[cfg(feature = "default")]
+pub mod iv_platform;
+
+#[cfg(feature = "use_sdl2")]
+pub mod sdl2_platform;
