@@ -4,4 +4,5 @@
 mod app;
 pub use app::TemplateApp;
 
+#[cfg(not(feature = "use_eframe"))]
 pub mod platform;
