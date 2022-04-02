@@ -206,7 +206,7 @@ impl EpiIntegration {
             iv::Event::Nextpage => todo!(),
             iv::Event::Opendic => todo!(),
             iv::Event::ControlPanelAboutToOpen => todo!(),
-            iv::Event::Update => todo!(),
+            iv::Event::Update => None,
             iv::Event::PanelBluetoothA2dp => todo!(),
             iv::Event::Tab => todo!(),
             iv::Event::Panel => todo!(),

@@ -5,7 +5,7 @@ use epaint::{Color32, FontFamily};
 
 pub const PADDING: f32 = 5.0;
 const WHITE: Color32 = Color32::from_rgb(255, 255, 255);
-const CYAN: Color32 = Color32::from_rgb(0, 255, 255);
+const BLACK: Color32 = Color32::from_rgb(0, 0, 0);
 
 pub struct Headlines {
     articles: Vec<NewsCardData>,
@@ -62,7 +62,7 @@ impl Headlines {
             ui.add(desc);
 
             // render hyperlinks
-            ui.style_mut().visuals.hyperlink_color = CYAN;
+            ui.style_mut().visuals.hyperlink_color = BLACK;
             ui.add_space(PADDING);
             ui.with_layout(Layout::right_to_left(), |ui| {
                 ui.add(Hyperlink::from_label_and_url("read more ⤴", &a.url));

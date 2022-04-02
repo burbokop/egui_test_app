@@ -61,8 +61,8 @@ impl Painter {
             egui::Shape::Circle(circle) => {
                 draw.draw_circle(
                     to_iv::emath_pos(circle.center, pixels_per_point), 
-                    circle.stroke.width as u32,
-                    circle.radius as u32,
+                    (circle.stroke.width * pixels_per_point) as u32,
+                    (circle.radius * pixels_per_point) as u32,
                     Some(to_iv::epaint_color(circle.fill)),
                     Some(to_iv::epaint_color(circle.stroke.color)),
                     None
@@ -80,10 +80,10 @@ impl Painter {
                 draw.draw_rect(
                     to_iv::emath_rect(rect.rect, pixels_per_point), 
                     rect.stroke.width as u32,
-                    rect.rounding.nw as u32,
-                    rect.rounding.ne as u32,
-                    rect.rounding.sw as u32,
-                    rect.rounding.se as u32,
+                    (rect.rounding.nw * pixels_per_point) as u32,
+                    (rect.rounding.ne * pixels_per_point) as u32,
+                    (rect.rounding.sw * pixels_per_point) as u32,
+                    (rect.rounding.se * pixels_per_point) as u32,
                     Some(to_iv::epaint_color(rect.fill)),
                     Some(to_iv::epaint_color(rect.stroke.color)), 
                     None,
@@ -92,19 +92,49 @@ impl Painter {
             egui::Shape::Text(text) => {
                 let galley = text.galley.as_ref();
                 let job = galley.job.as_ref();
-
                 let translated_rect = galley.rect.translate(text.pos.to_vec2());
-               
+              
+                //println!("&job.sections: {:?}", &job.sections);
                 if job.sections.len() > 0 {
-                    let _ =  &job.sections[0].format.font_id;
+                    let fid =  &job.sections[0].format.font_id;
+                    let color =  &job.sections[0].format.color;
 
-                    //println!("f: {:?}", font);
+
+                    //LayoutSection { 
+                    //    leading_space: 0.0, 
+                    //    byte_range: 0..19, 
+                    //    format: TextFormat { 
+                    //    font_id: FontId { 
+                    //        size: 20.0, 
+                    //        family: Proportional 
+                    //    }, 
+                    //    color: Color32([64, 254, 0, 255]), 
+                    //    background: Color32([0, 0, 0, 0]), 
+                    //    italics: false, 
+                    //    underline: Stroke { 
+                    //        width: 0.0, 
+                    //        color: Color32([0, 0, 0, 0]) }, 
+                    //        strikethrough: Stroke { 
+                    //            width: 0.0, 
+                    //            color: Color32([0, 0, 0, 0]) 
+                    //        }, 
+                    //        valign: Center 
+                    //    } 
+                    //}
+
+                    //println!("f: {:?}, default: {}", fid, iv::get_default_font(iv::FontType::Std));
 
                     //println!("f.family: {}", f.family);
 
-                    iv::set_font(font, to_iv::epaint_color(text.override_text_color.unwrap_or(Color32::from_rgb(255, 255, 255))));
+                    let new_font = iv::open_font(iv::get_default_font(iv::FontType::Std), (fid.size * pixels_per_point) as usize, 1);
+
+                    iv::set_font(&new_font, to_iv::epaint_color(text.override_text_color.unwrap_or(*color)));
                 
-                    Some(iv::draw_text_rect(to_iv::emath_rect(translated_rect, pixels_per_point), job.text.as_str(), 0).0)
+                    let translated_rect = to_iv::emath_rect(translated_rect, pixels_per_point);
+
+                    //draw.draw_rect(translated_rect, 4, 0, 0, 0, 0, None, Some(iv::Color32(0xff888888)), None);
+
+                    Some(iv::draw_text_rect(translated_rect, job.text.as_str(), 0).0)
                 } else {
                     None
                 }
