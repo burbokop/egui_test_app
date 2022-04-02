@@ -49,7 +49,7 @@ pub fn handle_app_output(app_output: epi::backend::AppOutput) {
 
 
 impl EpiIntegration {
-    pub fn new(storage: Option<Box<dyn epi::Storage>>) -> Self {
+    pub fn new(storage: Option<Box<dyn epi::Storage>>, prefer_dark_mode: Option<bool>) -> Self {
         let egui_ctx = egui::Context::default();
 
         //*egui_ctx.memory() = load_egui_memory(storage.as_deref()).unwrap_or_default();
@@ -72,13 +72,19 @@ impl EpiIntegration {
             info: epi::IntegrationInfo {
                 name: "iv_integration",
                 web_info: None,
-                prefer_dark_mode: Some(false),
+                prefer_dark_mode: prefer_dark_mode,
                 cpu_usage: None,
                 native_pixels_per_point: Some(1.),
             },
             output: Default::default(),
             repaint_signal: std::sync::Arc::from(RS::default()),
         });
+
+        if prefer_dark_mode == Some(true) {
+            egui_ctx.set_visuals(egui::Visuals::dark());
+        } else {
+            egui_ctx.set_visuals(egui::Visuals::light());
+        }
  
 
 /*

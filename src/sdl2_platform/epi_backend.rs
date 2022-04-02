@@ -25,7 +25,7 @@ pub fn run_native<A: epi::App>(mut app: Box<A>, native_options: epi::NativeOptio
     //println!("debug: {:?} -> {:?}", app, native_options.initial_window_pos);
 
 
-    let mut integration = super::epi_integration::EpiIntegration::new(None);
+    let mut integration = super::epi_integration::EpiIntegration::new(None, Some(false));
 
 
     let sdl_context = sdl2::init().unwrap();

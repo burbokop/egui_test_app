@@ -27,6 +27,9 @@ eframe = { version = "0.17.0", optional = true }
 sdl2 = { version = "0.35.2", features = [ "gfx" ], optional = true }
 
 
+egui_glow = { version = "0.17.0" }
+
+
 [dev-dependencies]
 image = { version = "0.24", default-features = false, features = ["png"] }
 
