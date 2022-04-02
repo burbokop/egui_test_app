@@ -42,7 +42,7 @@ pub mod to_iv {
 
     #[inline]
     pub fn epaint_color(color: epaint::Color32) -> iv::Color32 {
-        iv::Color32::rgb(color.r(), color.g(), color.b())
+        iv::Color32::argb(color.a(), color.r(), color.g(), color.b())
     }
 
 }

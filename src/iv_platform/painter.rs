@@ -1,20 +1,28 @@
 #![allow(unsafe_code)]
 
 
+use std::convert::identity;
+
 use egui::{
-    emath::Rect,
-    epaint::{Color32, Mesh, Vertex},
+    epaint::Color32,
 };
 use epaint::ClippedShape;
 
-use super::{inkview as iv, epi_backend::pixels_per_point32};
-use super::convert::{from_iv, to_iv};
+use super::{inkview as iv};
+use super::convert::{to_iv};
+
+pub struct PainterOptions {
+    paint_only_changed: bool,
+    update_pref_frame_rects: bool
+}
 
 pub struct Painter {
     max_texture_side: usize,
-    srgb_support: bool,
     pixels_per_point: f32,
     destroyed: bool,
+    last_frame_clipped_shapes: Vec<ClippedShape>,
+    last_frame_update_rects: Vec<iv::Rect>,
+
 }
 
 impl Painter {
@@ -22,8 +30,9 @@ impl Painter {
         Self { 
             destroyed: false, 
             max_texture_side: 1000, 
-            srgb_support: true, 
-            pixels_per_point: pixels_per_point 
+            pixels_per_point: pixels_per_point,
+            last_frame_clipped_shapes: Vec::default(),
+            last_frame_update_rects: Vec::default(),
         }
     }
 
@@ -31,15 +40,27 @@ impl Painter {
         self.max_texture_side
     }
 
-    pub fn paint_shape<'f, D: iv::Draw>(&mut self, draw: &mut D, shape: ClippedShape, font: &iv::Font<'f>) -> Option<iv::Rect> {
-        match shape.1 {
+    pub fn mark_shape_dirty(shapes: Vec<ClippedShape>, exclude: &mut Vec<ClippedShape>, ditry_count: &mut usize) -> Vec<(ClippedShape, bool)> {
+        shapes.into_iter().map(|s| {
+            if let Some(p) = exclude.iter().position(|e| { let a = e.eq(&s); a }) {
+                exclude.remove(p);
+                (s, false)
+            } else {
+                *ditry_count += 1;
+                (s, true)
+            }
+        }).collect()
+    }
+
+
+    pub fn paint_shape<'f, D: iv::Draw>(draw: &mut D, shape: ClippedShape, dirty: bool, pixels_per_point: f32, font: &iv::Font<'f>) -> Option<iv::Rect> {
+        let ur = match &shape.1 {
             egui::Shape::Noop => todo!(),
             egui::Shape::Vec(_) => todo!(),
             egui::Shape::Circle(circle) => {
-                println!("circle.fill: {:?}", circle.fill);
 
                 Some(iv::draw_circle_quarter(
-                    to_iv::emath_pos(circle.center, self.pixels_per_point), 
+                    to_iv::emath_pos(circle.center, pixels_per_point), 
                     circle.radius as u32, 
                     iv::Style::from_bits_truncate(iv::Style::default().bits() | iv::Style::FILL_INSIDE.bits()), 
                     circle.stroke.width as u32, 
@@ -49,36 +70,24 @@ impl Painter {
             },
             egui::Shape::LineSegment { points, stroke } => {
                 Some(iv::draw_line(
-                    to_iv::emath_pos(points[0], self.pixels_per_point), 
-                    to_iv::emath_pos(points[1], self.pixels_per_point), 
+                    to_iv::emath_pos(points[0], pixels_per_point), 
+                    to_iv::emath_pos(points[1], pixels_per_point), 
                     to_iv::epaint_color(stroke.color)
                 ))
             },
-            egui::Shape::Path(path) => todo!(),
+            egui::Shape::Path(_) => todo!(),
             egui::Shape::Rect(rect) => {
-
                 Some(draw.draw_rect(
-                    to_iv::emath_rect(rect.rect, self.pixels_per_point), 
-                    8,//rect.stroke.width as u32,
-                    5, //rect.rounding.nw as u32,
-                    12, //rect.rounding.ne as u32,
-                    15, //rect.rounding.sw as u32,
-                    20, //rect.rounding.se as u32,
-                    iv::Color32(0xff222222),// to_iv::epaint_color(rect.fill),
-                    iv::Color32(0xff888888),// to_iv::epaint_color(rect.stroke.color), 
-                    iv::Color32(0xffaaaaaa),
+                    to_iv::emath_rect(rect.rect, pixels_per_point), 
+                    rect.stroke.width as u32,
+                    rect.rounding.nw as u32,
+                    rect.rounding.ne as u32,
+                    rect.rounding.sw as u32,
+                    rect.rounding.se as u32,
+                    Some(to_iv::epaint_color(rect.fill)),
+                    Some(to_iv::epaint_color(rect.stroke.color)), 
+                    None,
                 ))
-/*
-                Some(iv::draw_frame_certified_ex(
-                    to_iv::emath_rect(rect.rect, self.pixels_per_point), 
-                    8, // rect.stroke.width as i32, 
-                    iv::Side::default(),
-                    iv::Style::from_bits_truncate(iv::Style::default().bits() | iv::Style::FILL_INSIDE.bits()), 
-                    8, 
-                    to_iv::epaint_color(rect.stroke.color), 
-                    to_iv::epaint_color(rect.fill)
-                ))
-                 */
             }
             egui::Shape::Text(text) => {
                 let galley = text.galley.as_ref();
@@ -87,7 +96,7 @@ impl Painter {
                 let translated_rect = galley.rect.translate(text.pos.to_vec2());
                
                 if job.sections.len() > 0 {
-                    let f =  &job.sections[0].format.font_id;
+                    let _ =  &job.sections[0].format.font_id;
 
                     //println!("f: {:?}", font);
 
@@ -95,7 +104,7 @@ impl Painter {
 
                     iv::set_font(font, to_iv::epaint_color(text.override_text_color.unwrap_or(Color32::from_rgb(255, 255, 255))));
                 
-                    Some(iv::draw_text_rect(to_iv::emath_rect(translated_rect, self.pixels_per_point), job.text.as_str(), 0).0)
+                    Some(iv::draw_text_rect(to_iv::emath_rect(translated_rect, pixels_per_point), job.text.as_str(), 0).0)
                 } else {
                     None
                 }
@@ -105,7 +114,18 @@ impl Painter {
             egui::Shape::Mesh(_) => todo!(),
             egui::Shape::QuadraticBezier(_) => todo!(),
             egui::Shape::CubicBezier(_) => todo!(),
+        };
+
+        match shape.1 {
+            epaint::Shape::Circle(s) => println!("\tdirty: {:?}, shape.Circle: {:?}", dirty, ur),
+            epaint::Shape::Rect(s) =>  println!("\tdirty: {:?}, shape.Rect: {:?}", dirty, ur),
+            _ => {}
         }
+
+        ur.and_then(|rect| if dirty { Some(rect) } else { None })
+
+
+
     }
 
     
@@ -117,7 +137,7 @@ impl Painter {
         font: &iv::Font<'f>
     ) {
 
-        for (id, image_delta) in &textures_delta.set {
+        for (_, image_delta) in &textures_delta.set {
             let p = &image_delta.pos;
 
             let s = match &image_delta.image {
@@ -165,16 +185,37 @@ impl Painter {
             
             
 
-            println!("\timage_delta: {:?}, {:?}", p, s)
         }
 
-        for s in clipped_shapes {
-            //println!("\tshape: {:?}");
-            if let Some(update_rect) = self.paint_shape(draw, s, font) {
-                iv::dynamic_update(iv::DynamicUpdateType::A2(iv::update_type::A2), update_rect)
+        println!("PAINT");
+
+        let update_type = iv::update::Normal;
+
+        let mut dirty_count: usize = 0;
+        let dirty_shapes = Self::mark_shape_dirty(clipped_shapes.clone(), &mut self.last_frame_clipped_shapes, &mut dirty_count);
+        if dirty_count > 0 {
+
+            let update_rects: Vec<_> = dirty_shapes.into_iter()
+                .map(|s| Self::paint_shape(draw, s.0, s.1, self.pixels_per_point, font))
+                .filter_map(identity).collect();
+
+            println!("UPDATE LAST DIRTY RECTS");
+
+            for rect in &self.last_frame_update_rects {
+                println!("\tlfur: {:?}", rect);
+                iv::dynamic_update(update_type.into(), *rect);
             }
+
+            println!("UPDATE CURRENT DIRTY RECTS");
+
+            self.last_frame_update_rects = update_rects.into_iter().map(|rect| {
+                iv::dynamic_update(update_type.into(), rect);
+                rect
+            }).collect();
+
+            self.last_frame_clipped_shapes = clipped_shapes;
+
         }
-        
         //self.paint_meshes(gl, inner_size, pixels_per_point, clipped_meshes);
 
         //for &id in &textures_delta.free {

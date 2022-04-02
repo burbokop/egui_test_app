@@ -113,12 +113,24 @@ impl VecI32 {
             None
         }
     }
+    pub fn add_scalar(self, s: i32) -> Self {
+        Self { x: self.x + s, y: self.y + s }
+    }
+    pub fn sub_scalar(self, s: i32) -> Self {
+        Self { x: self.x - s, y: self.y - s }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct VecU32 {
     pub x: u32,
     pub y: u32
+}
+
+impl VecU32 {
+    pub fn is_zero(&self) {
+        self.x == 0 && self.y == 0;
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -171,8 +183,23 @@ pub struct Canvas<'a> {
 }
 
 impl<'a> Canvas<'a> {
-    pub fn x_mul(&self) -> usize {
-        self.depth >> 3
+    pub fn depth_bytes(&self) -> usize {
+        self.depth / 8
+    }
+
+    pub fn foreach_mut<F: FnMut(&mut u8, u32, u32)>(&mut self, rect: Rect, mut f: F) -> Option<Rect> {
+        if let Some(rect) = rect.clip(self.clip_rect) {
+            let y_mul = self.scanline;
+            let x_mul = self.depth_bytes();
+            for y in rect.pos.y as u32..(rect.pos.y as u32 + rect.size.y) {
+                for x in rect.pos.x as u32..(rect.pos.x as u32 + rect.size.x) {
+                     f(&mut self.pixels[x as usize * x_mul + y as usize * y_mul], x, y);
+                }
+            }
+            Some(rect)
+        } else {
+            None
+        }
     }
 }
 
@@ -277,18 +304,18 @@ pub fn get_canvas() -> Canvas<'static> {
     }
 }
 
-pub mod update_type {
-    pub struct Normal;
-    pub struct HQ;
-    pub struct Black;
-    pub struct BW;
-    pub struct DU4;
-    pub struct A2;
+pub mod update {
+    #[derive(Debug, Clone, Copy)] pub struct Normal;
+    #[derive(Debug, Clone, Copy)] pub struct HQ;
+    #[derive(Debug, Clone, Copy)] pub struct Black;
+    #[derive(Debug, Clone, Copy)] pub struct BW;
+    #[derive(Debug, Clone, Copy)] pub struct DU4;
+    #[derive(Debug, Clone, Copy)] pub struct A2;
 }
 
 pub enum FullSoftUpdateType {
-    Normal(update_type::Normal),
-    HQ(update_type::HQ)
+    Normal(update::Normal),
+    HQ(update::HQ)
 }
 
 pub fn full_update(tp: &FullSoftUpdateType) {
@@ -306,11 +333,11 @@ pub fn soft_update(tp: &FullSoftUpdateType) {
 }
 
 pub enum PartialUpdateType {
-    Normal(update_type::Normal),
-    HQ(update_type::HQ),
-    Black(update_type::Black),
-    BW(update_type::BW),
-    DU4(update_type::DU4)
+    Normal(update::Normal),
+    HQ(update::HQ),
+    Black(update::Black),
+    BW(update::BW),
+    DU4(update::DU4)
 }
 
 pub fn partial_update(tp: &PartialUpdateType, x: usize, y: usize, w: usize, h: usize) {
@@ -324,10 +351,23 @@ pub fn partial_update(tp: &PartialUpdateType, x: usize, y: usize, w: usize, h: u
 }
 
 pub enum DynamicUpdateType {
-    Normal(update_type::Normal),
-    BW(update_type::BW),
-    A2(update_type::A2)
+    Normal(update::Normal),
+    BW(update::BW),
+    A2(update::A2)
 }
+
+impl From<update::Normal> for DynamicUpdateType {
+    fn from(_: update::Normal) -> Self { DynamicUpdateType::Normal(update::Normal) }
+}
+
+impl From<update::BW> for DynamicUpdateType {
+    fn from(_: update::BW) -> Self { DynamicUpdateType::BW(update::BW) }
+}
+
+impl From<update::A2> for DynamicUpdateType {
+    fn from(_: update::A2) -> Self { DynamicUpdateType::A2(update::A2) }
+}
+
 
 pub fn dynamic_update(tp: DynamicUpdateType, update_rect: Rect) {
     match tp {
@@ -379,8 +419,14 @@ impl Color32 {
     
     pub const TRANSPERENT: Color32 = Color32(0x00000000);
 
+    pub const fn none_if_transperent(self) -> Option<Color32> { if self.is_transperent() { None } else { Some(self) } }
+
     pub const fn rgb(red: u8, green: u8, blue: u8) -> Self {
-        Self(((blue as u32) << 16) + ((green as u32) << 8) + red as u32)
+        Self::argb(0xff, red, green, blue)
+    }
+
+    pub const fn argb(alpha: u8, red: u8, green: u8, blue: u8) -> Self {
+        Self(((alpha as u32) << 24) + ((red as u32) << 16) + ((green as u32) << 8) + blue as u32)
     }
 
     pub const fn a(&self) -> u8 { (self.0 >> 24) as u8 }
