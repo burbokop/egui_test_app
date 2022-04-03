@@ -8,31 +8,22 @@ use std::time::Instant;
 use epaint::ClippedShape;
 use itertools::Itertools;
 
-use super::{inkview as iv};
-use super::convert::{to_iv};
+use super::inkview as iv;
+use super::convert::to_iv;
 
 pub struct Painter {
-    max_texture_side: usize,
     pixels_per_point: f32,
-    destroyed: bool,
     last_frame_clipped_shapes: Vec<ClippedShape>,
     last_frame_update_rects: Vec<iv::Rect>,
-
 }
 
 impl Painter {
     pub fn new(pixels_per_point: f32) -> Self {
         Self { 
-            destroyed: false, 
-            max_texture_side: 1000, 
             pixels_per_point: pixels_per_point,
             last_frame_clipped_shapes: Vec::default(),
             last_frame_update_rects: Vec::default(),
         }
-    }
-
-    pub fn max_texture_side(&self) -> usize {
-        self.max_texture_side
     }
 
     pub fn mark_shape_dirty(shapes: Vec<ClippedShape>, exclude: &mut Vec<ClippedShape>, ditry_count: &mut usize) -> Vec<(ClippedShape, bool)> {
@@ -48,7 +39,7 @@ impl Painter {
     }
 
 
-    pub fn paint_shape<'f, D: iv::Draw>(draw: &mut D, shape: ClippedShape, dirty: bool, pixels_per_point: f32, _: &iv::Font<'f>) -> Option<iv::Rect> {
+    pub fn paint_shape<'f, D: iv::Draw>(draw: &mut D, shape: ClippedShape, dirty: bool, pixels_per_point: f32) -> Option<iv::Rect> {
         let ur = match &shape.1 {
             egui::Shape::Noop => todo!(),
             egui::Shape::Vec(_) => todo!(),
@@ -119,7 +110,6 @@ impl Painter {
         draw: &mut D,
         clipped_shapes: Vec<epaint::ClippedShape>,
         textures_delta: &egui::TexturesDelta,
-        font: &iv::Font<'f>
     ) {
         for (_, image_delta) in &textures_delta.set {            
             match &image_delta.image {
@@ -143,7 +133,7 @@ impl Painter {
 
             let update_rects: Vec<_> = dirty_shapes
                 .into_iter()
-                .map(|s| Self::paint_shape(draw, s.0, s.1, self.pixels_per_point, font))
+                .map(|s| Self::paint_shape(draw, s.0, s.1, self.pixels_per_point))
                 .filter_map(identity)
                 .collect();
 
@@ -177,15 +167,5 @@ impl Painter {
 
         }
         println!("\tpainting duration: {:?}", Instant::now() - painting_start)
-    }
-}
-
-impl Drop for Painter {
-    fn drop(&mut self) {
-        if !self.destroyed {
-            panic!(
-                "You forgot to call destroy() on the egui glow painter. Resources will leak!"
-            );
-        }
     }
 }

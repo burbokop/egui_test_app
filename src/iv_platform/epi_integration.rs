@@ -10,27 +10,19 @@ use super::inkview::{self as iv, NonZeroF32};
 
 pub struct EpiIntegration {
     pub frame: epi::Frame,
-    //last_auto_save: instant::Instant,
     pub egui_ctx: egui::Context,
     pending_full_output: egui::FullOutput,
-    //egui_winit: crate::State,
-    /// When set, it is time to quit
     quit: bool,
-    can_drag_window: bool,
     pixels_per_point: iv::NonZeroF32,
     event_q: Queue<Event>
 }
 
 impl EpiIntegration {
-    pub fn new(_: Option<Box<dyn epi::Storage>>, pixels_per_point: iv::NonZeroF32, prefer_dark_mode: Option<bool>) -> Self {
+    pub fn new(pixels_per_point: iv::NonZeroF32, prefer_dark_mode: Option<bool>) -> Self {
         let egui_ctx = egui::Context::default();
 
-        println!("pixels_per_point: {:?}", pixels_per_point);
-
         #[derive(Default)]
-        struct RS {
-
-        }
+        struct RS {}
 
         impl RepaintSignal for RS {
             fn request_repaint(&self) {
@@ -57,7 +49,6 @@ impl EpiIntegration {
         }
  
         Self { 
-            can_drag_window: true, 
             egui_ctx: egui_ctx, 
             quit: false, 
             frame: frame, 
@@ -69,36 +60,16 @@ impl EpiIntegration {
 
     pub fn pixels_per_point(&self) -> NonZeroF32 { self.pixels_per_point }
 
-    /*
-    pub fn warm_up(&mut self, app: &mut dyn epi::App, window: &winit::window::Window) {
-        let saved_memory: egui::Memory = self.egui_ctx.memory().clone();
-        self.egui_ctx.memory().set_everything_is_visible(true);
-        let full_output = self.update(app, window);
-        self.pending_full_output.append(full_output); // Handle it next frame
-        *self.egui_ctx.memory() = saved_memory; // We don't want to remember that windows were huge.
-        self.egui_ctx.clear_animations();
-    }
-    */
-
-    /// If `true`, it is time to shut down.
     pub fn should_quit(&self) -> bool {
         self.quit
     }
-    /* 
-    inkview::EventType::Exit => if app.on_exit_event() { 
-        inkview::clear_on_exit(); 
-        std::process::exit(0)
-    } else { false },
-*/
 
-    pub fn convert_event_to_app<A: epi::App>(&mut self, app: &mut A, event: &iv::Event) -> Option<egui::Event> {
-
-        //println!("event: {:?}, (ppp: {}) (sppp: {:?})", event, self.egui_ctx.pixels_per_point(), self.pixels_per_point);
+    pub fn convert_event_to_app<A: epi::App>(&mut self, app: &mut A, event: &iv::Event) -> Option<Option<egui::Event>> {
         match event {
             iv::Event::Init => None,
             iv::Event::Exit => if app.on_exit_event() { 
-                //inkview::clear_on_exit(); 
-                std::process::exit(0)
+                self.quit = true;
+                Some(None)
             } else { None },
             iv::Event::Show => None,
             iv::Event::Hide => None,
@@ -108,14 +79,14 @@ impl EpiIntegration {
             iv::Event::KeyPressExt => todo!(),
             iv::Event::KeyReleaseExt => todo!(),
             iv::Event::KeyRepeatExt => todo!(),
-            iv::Event::PointerUp { pos } => Some(
+            iv::Event::PointerUp { pos } => Some(Some(
                 egui::Event::PointerButton {
                     pos: from_iv::emath_pos(*pos, self.pixels_per_point),
                     button: egui::PointerButton::Primary,
                     pressed: false,
                     modifiers: egui::Modifiers::default(),
                 }
-            ),
+            )),
             //Some(egui::Event::Touch {
             //    device_id: egui::TouchDeviceId(0),
             //    id: egui::TouchId(0),
@@ -123,14 +94,14 @@ impl EpiIntegration {
             //    pos: from_iv::emath_pos(*pos, self.pixels_per_point),
             //    force: 1.,
             //}),
-            iv::Event::PointerDown { pos } => Some(
+            iv::Event::PointerDown { pos } => Some(Some(
                 egui::Event::PointerButton {
                     pos: from_iv::emath_pos(*pos, self.pixels_per_point),
                     button: egui::PointerButton::Primary,
                     pressed: true,
                     modifiers: egui::Modifiers::default(),
                 }
-            ),
+            )),
 /*
             Some(egui::Event::Touch {
                 device_id: egui::TouchDeviceId(0),
@@ -146,7 +117,7 @@ impl EpiIntegration {
             iv::Event::PointerLong { pos } => { None },
             iv::Event::PointerHold { pos } => { None },
             iv::Event::PointerDrag { pos } => { 
-                Some(egui::Event::PointerMoved(from_iv::emath_pos(*pos, self.pixels_per_point)))
+                Some(Some(egui::Event::PointerMoved(from_iv::emath_pos(*pos, self.pixels_per_point))))
             },
             iv::Event::PointerCancel { pos } => { None },
             iv::Event::PointerChanged { pos } => { None },
@@ -231,21 +202,16 @@ impl EpiIntegration {
         }
     }
 
-
     pub fn on_event<A: epi::App>(&mut self, app: &mut A, event: &iv::Event) -> bool {
-
-        let e = self.convert_event_to_app(app, event);
-
-        if let Some(ee) = e {
-            self.event_q.add(ee).unwrap();
+        if let Some(e) = self.convert_event_to_app(app, event) {
+            if let Some(e) = e {
+                self.event_q.add(e).unwrap();
+            }
+            true
+        } else {
+            false
         }
-
-        return true
-
-        //self.egui_winit.on_event(&self.egui_ctx, event);
     }
-
-
 
     pub fn update(
         &mut self,
@@ -271,27 +237,17 @@ impl EpiIntegration {
             ..Default::default() 
         };
 
-
-        //let raw_input = self.egui_winit.take_egui_input(window);
         let full_output = self.egui_ctx.run(raw_input, |egui_ctx| {
             app.update(egui_ctx, &self.frame);
         });
         self.pending_full_output.append(full_output);
         let full_output = std::mem::take(&mut self.pending_full_output);
-
-
-        {
-            let mut app_output = self.frame.take_app_output();
-            app_output.drag_window &= self.can_drag_window; // Necessary on Windows; see https://github.com/emilk/egui/pull/1108
-            self.can_drag_window = false;
-            if app_output.quit {
-                //self.quit = app.on_exit_event();
-            }
+        if self.frame.take_app_output().quit {
+            self.quit = app.on_exit_event();
         }
 
         let frame_time = (Instant::now() - frame_start).as_secs_f64() as f32;
         self.frame.lock().info.cpu_usage = Some(frame_time);
-
         full_output
     }
 }

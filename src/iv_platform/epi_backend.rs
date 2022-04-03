@@ -38,44 +38,22 @@ pub fn dp_to_pix64(v: f64) -> f64 {
     v * pixels_per_point64()
 }
 
-pub fn run_native<A: epi::App>(mut app: Box<A>, _: epi::NativeOptions) -> ! {
-    //println!("debug: {:?} -> {:?}", app, native_options.initial_window_pos);
-
+pub fn run_native<A: epi::App>(mut app: Box<A>, _: epi::NativeOptions) {
     inkview::open_screen();
 
-    println!("AAAAA");
-    println!("))): pixels_per_point32: {}", pixels_per_point32());
-
     let mut integration = super::epi_integration::EpiIntegration::new(
-        None, 
-        NonZeroF32::from_f32(2.).unwrap(),//NonZeroF32::from_f32(pixels_per_point32()).unwrap(),
+        NonZeroF32::from_f32(pixels_per_point32()).unwrap(),
         Some(false)
     );
-
 
     inkview::prepare_for_loop_ex(|event| -> bool {
         integration.on_event(app.deref_mut(), &event)
     });
 
-    //inkview::set_hard_timer("fffff", || println!("GOGADODA"), 1000);
-
     let mut canvas = inkview::get_canvas();
-
-    println!("screen size: {{ {}, {} }}", inkview::screen_width().unwrap(), inkview::screen_height().unwrap());
-
-    println!("canvas: {:?}", canvas);
-
-    println!("inkview::get_screen_scale_factor2(): {:?}", inkview::get_screen_scale_factor());
-    println!("inkview::get_screen_dpi2(): {:?}", inkview::get_screen_dpi());
-
-    //&mut canvas, 1., ShaderVersion::Default
-
     let mut painter = Painter::new(integration.pixels_per_point().to_f32());
 
-    let font = inkview::open_font(inkview::get_default_font(inkview::FontType::Std), 10, 1);
-    
-
-    loop {
+    while !integration.should_quit() {
         let egui::FullOutput {
             platform_output,
             needs_repaint,
@@ -84,10 +62,11 @@ pub fn run_native<A: epi::App>(mut app: Box<A>, _: epi::NativeOptions) -> ! {
         } = integration.update(app.as_mut());
 
         if needs_repaint {
-            painter.paint_and_update_textures(&mut canvas, shapes, &textures_delta, &font);
+            painter.paint_and_update_textures(&mut canvas, shapes, &textures_delta);
         }
 
         inkview::process_event_loop();
         //std::thread::sleep(std::time::Duration::from_millis(1000 / 30));
     }
+    inkview::clear_on_exit();
 }

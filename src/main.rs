@@ -23,7 +23,7 @@ fn run<A: epi::App>(app: Box<A>, native_options: epi::NativeOptions) -> ! {
 }
 
 #[cfg(feature = "default")]
-fn run<A: epi::App>(app: Box<A>, native_options: epi::NativeOptions) -> ! {
+fn run<A: epi::App>(app: Box<A>, native_options: epi::NativeOptions) {
     egui_app::iv_platform::run_native(app, native_options);
 }
 
