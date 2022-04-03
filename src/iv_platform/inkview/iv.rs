@@ -208,6 +208,19 @@ impl<'a> Canvas<'a> {
             None
         }
     }
+
+    pub fn foreach_line_mut<F: FnMut(&mut [u8], u32)>(&mut self, rect: Rect, mut f: F) -> Option<Rect> {
+        if let Some(rect) = rect.clip(self.clip_rect) {
+            let y_mul = self.scanline;
+            for y in rect.pos.y as u32..(rect.pos.y as u32 + rect.size.y) {
+                let m = y as usize * y_mul;
+                f(&mut self.pixels[m..m + y_mul], y);
+            }
+            Some(rect)
+        } else {
+            None
+        }
+    }
 }
 
 

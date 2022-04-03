@@ -55,7 +55,10 @@ impl<'a> Draw for Canvas<'a> {
         rect: Rect, 
         fill_color: Color32,
     ) -> Option<Rect> {
-        self.foreach_mut(rect, |pix, _, _| *pix = fill_color.avr())        
+        let gray = fill_color.avr();
+        use slice_fill::SliceExt;
+        //self.foreach_mut(rect, |pix, _, _| *pix = gray)
+        self.foreach_line_mut(rect, |line, _| line.fill(gray))
     }
 
     fn draw_rect(
@@ -203,4 +206,19 @@ impl<'a> Draw for Canvas<'a> {
             None
         }
     }
+}
+
+
+#[bench]
+fn empty(b: &mut Bencher) {
+    b.iter(|| 1)
+}
+
+#[bench]
+fn setup_random_hashmap(b: &mut Bencher) {
+    let mut val : u32 = 0;
+    let mut rng = rand::IsaacRng::new_unseeded();
+    let mut map = std::collections::HashMap::new();
+
+    b.iter(|| { map.insert(rng.gen::<u8>() as usize, val); val += 1; })
 }
