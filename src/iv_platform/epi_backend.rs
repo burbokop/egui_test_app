@@ -1,7 +1,7 @@
 
-use std::{convert::identity, ops::DerefMut};
+use std::{ops::DerefMut, time::Instant};
 
-use egui::{ClippedMesh, Color32};
+use egui::{ClippedMesh};
 use epaint::ClippedShape;
 use epi;
 
@@ -38,7 +38,7 @@ pub fn dp_to_pix64(v: f64) -> f64 {
     v * pixels_per_point64()
 }
 
-pub fn run_native<A: epi::App>(mut app: Box<A>, native_options: epi::NativeOptions) -> ! {
+pub fn run_native<A: epi::App>(mut app: Box<A>, _: epi::NativeOptions) -> ! {
     //println!("debug: {:?} -> {:?}", app, native_options.initial_window_pos);
 
     inkview::open_screen();
@@ -88,6 +88,6 @@ pub fn run_native<A: epi::App>(mut app: Box<A>, native_options: epi::NativeOptio
         }
 
         inkview::process_event_loop();
-        std::thread::sleep(std::time::Duration::from_millis(1000 / 30));
+        //std::thread::sleep(std::time::Duration::from_millis(1000 / 30));
     }
 }

@@ -56,8 +56,6 @@ impl<'a> Draw for Canvas<'a> {
         fill_color: Color32,
     ) -> Option<Rect> {
         let gray = fill_color.avr();
-        use slice_fill::SliceExt;
-        //self.foreach_mut(rect, |pix, _, _| *pix = gray)
         self.foreach_line_mut(rect, |line, _| line.fill(gray))
     }
 

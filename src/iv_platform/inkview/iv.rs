@@ -1,6 +1,6 @@
-use std::{ffi::{CStr, c_void}, os::raw::{c_int, c_char, c_uint}, mem};
+use std::{ffi::{CStr, c_void}, os::raw::{c_int, c_char, c_uint}, mem, hash::Hash};
 use std::fmt::Debug;
-
+use std::cmp::Eq;
 
 use super::Event;
 #[allow(unsafe_code)]
@@ -93,6 +93,24 @@ pub struct VecI32 {
     pub y: i32
 }
 
+
+impl Eq for VecI32 {
+    fn assert_receiver_is_total_eq(&self) {}
+}
+
+impl PartialEq for VecI32 {
+    fn eq(&self, other: &Self) -> bool {
+        self.x == other.x && self.y == other.y
+    }
+}
+
+impl Hash for VecI32 {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.x.hash(state);
+        self.y.hash(state);
+    }
+}
+
 impl VecI32 {
     pub fn min(self, other: VecI32) -> VecI32 {
         VecI32 {
@@ -127,16 +145,49 @@ pub struct VecU32 {
     pub y: u32
 }
 
-impl VecU32 {
-    pub fn is_zero(&self) {
-        self.x == 0 && self.y == 0;
+
+impl Eq for VecU32 {
+    fn assert_receiver_is_total_eq(&self) {}
+}
+
+impl PartialEq for VecU32 {
+    fn eq(&self, other: &Self) -> bool {
+        self.x == other.x && self.y == other.y
     }
+}
+
+impl Hash for VecU32 {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.x.hash(state);
+        self.y.hash(state);
+    }
+}
+
+impl VecU32 {
+    pub fn is_zero(&self) -> bool { self.x == 0 && self.y == 0 }
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct Rect {
     pub pos: VecI32,
     pub size: VecU32,
+}
+
+impl Eq for Rect {
+    fn assert_receiver_is_total_eq(&self) {}
+}
+
+impl PartialEq for Rect {
+    fn eq(&self, other: &Self) -> bool {
+        self.pos == other.pos && self.size == other.size
+    }
+}
+
+impl Hash for Rect {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.pos.hash(state);
+        self.size.hash(state);
+    }
 }
 
 impl Rect {
@@ -212,9 +263,11 @@ impl<'a> Canvas<'a> {
     pub fn foreach_line_mut<F: FnMut(&mut [u8], u32)>(&mut self, rect: Rect, mut f: F) -> Option<Rect> {
         if let Some(rect) = rect.clip(self.clip_rect) {
             let y_mul = self.scanline;
+            let start_x = rect.pos.x as usize * self.depth_bytes();
+            let end_x = (rect.pos.x as usize + rect.size.x as usize) * self.depth_bytes();
             for y in rect.pos.y as u32..(rect.pos.y as u32 + rect.size.y) {
                 let m = y as usize * y_mul;
-                f(&mut self.pixels[m..m + y_mul], y);
+                f(&mut self.pixels[m + start_x..m + end_x], y);
             }
             Some(rect)
         } else {
@@ -237,7 +290,6 @@ impl<'a> Debug for Canvas<'a> {
 }
 
 use bitflags::bitflags;
-use epaint::Pos2;
 
 bitflags! {
     pub struct Style: u16 {
@@ -496,12 +548,14 @@ pub fn draw_line(pos0: VecI32, pos1: VecI32, color: Color32) -> Rect {
     Rect::from_points_auto_flip(pos0, pos1)
 }
 
-pub fn draw_line_ex(x1: c_int, y1: c_int, x2: c_int, y2: c_int, color: c_int, step: c_int) {
-
+pub fn draw_line_ex(pos0: VecI32, pos1: VecI32, color: Color32, step: u32) -> Rect {
+    unsafe { c_iv::DrawLineEx(pos0.x, pos0.y, pos1.x, pos1.y, color.0 as c_int, step as c_int) }
+    Rect::from_points_auto_flip(pos0, pos1)
 }
 
-pub fn draw_dash_line(x1: c_int, y1: c_int, x2: c_int, y2: c_int, color: c_int, fill: c_uint, space: c_uint) {
-
+pub fn draw_dash_line(pos0: VecI32, pos1: VecI32, color: Color32, fill: c_uint, space: c_uint) -> Rect {
+    unsafe { c_iv::DrawDashLine(pos0.x, pos0.y, pos1.x, pos1.y, color.0 as c_int, fill, space) }
+    Rect::from_points_auto_flip(pos0, pos1)
 }
 
 pub fn draw_rect(rect: Rect, color: Color32) {
@@ -604,8 +658,8 @@ pub fn draw_string(pos: VecI32, s: &str) {
     unsafe { c_iv::DrawString(pos.x, pos.y, s.as_ptr() as *const c_char) }
 }
 
-pub fn draw_string_r(x: c_int, y: c_int, s: *const c_char) {
-
+pub fn draw_string_r(pos: VecI32, s: &str) {
+    unsafe { c_iv::DrawStringR(pos.x, pos.y, s.as_ptr() as *const c_char) } 
 }
 
 pub fn text_rect_height(width: usize, s: &str, flags: i32) -> c_int {

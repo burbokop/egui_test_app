@@ -21,43 +21,8 @@ pub struct EpiIntegration {
     event_q: Queue<Event>
 }
 
-
-pub fn handle_app_output(app_output: epi::backend::AppOutput) {
-    //let epi::backend::AppOutput {
-    //    quit: _,
-    //    window_size,
-    //    window_title,
-    //    decorated,
-    //    drag_window,
-    //} = app_output;
-
-    //if let Some(decorated) = decorated {
-    //    window.set_decorations(decorated);
-    //}
-
-    //if let Some(window_size) = window_size {
-    //    window.set_inner_size(
-    //        winit::dpi::PhysicalSize {
-    //            width: (current_pixels_per_point * window_size.x).round(),
-    //            height: (current_pixels_per_point * window_size.y).round(),
-    //        }
-    //        .to_logical::<f32>(crate::native_pixels_per_point(window) as f64),
-    //    );
-    //}
-
-    //if let Some(window_title) = window_title {
-    //    window.set_title(&window_title);
-    //}
-
-    //if drag_window {
-    //    let _ = window.drag_window();
-    //}
-
-}
-
-
 impl EpiIntegration {
-    pub fn new(storage: Option<Box<dyn epi::Storage>>, pixels_per_point: iv::NonZeroF32, prefer_dark_mode: Option<bool>) -> Self {
+    pub fn new(_: Option<Box<dyn epi::Storage>>, pixels_per_point: iv::NonZeroF32, prefer_dark_mode: Option<bool>) -> Self {
         let egui_ctx = egui::Context::default();
 
         println!("pixels_per_point: {:?}", pixels_per_point);
@@ -322,7 +287,6 @@ impl EpiIntegration {
             if app_output.quit {
                 //self.quit = app.on_exit_event();
             }
-            handle_app_output(app_output);
         }
 
         let frame_time = (Instant::now() - frame_start).as_secs_f64() as f32;
@@ -330,44 +294,4 @@ impl EpiIntegration {
 
         full_output
     }
-/* 
-    pub fn handle_platform_output(
-        &mut self,
-        window: &winit::window::Window,
-        platform_output: egui::PlatformOutput,
-    ) {
-        self.egui_winit
-            .handle_platform_output(window, &self.egui_ctx, platform_output);
-    }
-*/
-    // ------------------------------------------------------------------------
-    // Persistance stuff:
-/* 
-    pub fn maybe_autosave(&mut self, app: &mut dyn epi::App, window: &winit::window::Window) {
-        let now = instant::Instant::now();
-        if now - self.last_auto_save > app.auto_save_interval() {
-            self.save(app, window);
-            self.last_auto_save = now;
-        }
-    }
-*/
-/* 
-    pub fn save(&mut self, _app: &mut dyn epi::App, _window: &winit::window::Window) {
-        #[cfg(feature = "persistence")]
-        if let Some(storage) = self.frame.storage_mut() {
-            if _app.persist_native_window() {
-                epi::set_value(
-                    storage,
-                    STORAGE_WINDOW_KEY,
-                    &crate::WindowSettings::from_display(_window),
-                );
-            }
-            if _app.persist_egui_memory() {
-                epi::set_value(storage, STORAGE_EGUI_MEMORY_KEY, &*self.egui_ctx.memory());
-            }
-            _app.save(storage);
-            storage.flush();
-        }
-    }
-    */
 }

@@ -4,18 +4,12 @@
 use std::convert::identity;
 use std::time::Instant;
 
-use egui::{
-    epaint::Color32,
-};
+
 use epaint::ClippedShape;
+use itertools::Itertools;
 
 use super::{inkview as iv};
 use super::convert::{to_iv};
-
-pub struct PainterOptions {
-    paint_only_changed: bool,
-    update_pref_frame_rects: bool
-}
 
 pub struct Painter {
     max_texture_side: usize,
@@ -54,7 +48,7 @@ impl Painter {
     }
 
 
-    pub fn paint_shape<'f, D: iv::Draw>(draw: &mut D, shape: ClippedShape, dirty: bool, pixels_per_point: f32, font: &iv::Font<'f>) -> Option<iv::Rect> {
+    pub fn paint_shape<'f, D: iv::Draw>(draw: &mut D, shape: ClippedShape, dirty: bool, pixels_per_point: f32, _: &iv::Font<'f>) -> Option<iv::Rect> {
         let ur = match &shape.1 {
             egui::Shape::Noop => todo!(),
             egui::Shape::Vec(_) => todo!(),
@@ -98,42 +92,12 @@ impl Painter {
                 if job.sections.len() > 0 {
                     let fid =  &job.sections[0].format.font_id;
                     let color =  &job.sections[0].format.color;
-
-
-                    //LayoutSection { 
-                    //    leading_space: 0.0, 
-                    //    byte_range: 0..19, 
-                    //    format: TextFormat { 
-                    //    font_id: FontId { 
-                    //        size: 20.0, 
-                    //        family: Proportional 
-                    //    }, 
-                    //    color: Color32([64, 254, 0, 255]), 
-                    //    background: Color32([0, 0, 0, 0]), 
-                    //    italics: false, 
-                    //    underline: Stroke { 
-                    //        width: 0.0, 
-                    //        color: Color32([0, 0, 0, 0]) }, 
-                    //        strikethrough: Stroke { 
-                    //            width: 0.0, 
-                    //            color: Color32([0, 0, 0, 0]) 
-                    //        }, 
-                    //        valign: Center 
-                    //    } 
-                    //}
-
                     //println!("f: {:?}, default: {}", fid, iv::get_default_font(iv::FontType::Std));
-
                     //println!("f.family: {}", f.family);
-
                     let new_font = iv::open_font(iv::get_default_font(iv::FontType::Std), (fid.size * pixels_per_point) as usize, 1);
-
                     iv::set_font(&new_font, to_iv::epaint_color(text.override_text_color.unwrap_or(*color)));
-                
                     let translated_rect = to_iv::emath_rect(translated_rect, pixels_per_point);
-
                     //draw.draw_rect(translated_rect, 4, 0, 0, 0, 0, None, Some(iv::Color32(0xff888888)), None);
-
                     Some(iv::draw_text_rect(translated_rect, job.text.as_str(), 0).0)
                 } else {
                     None
@@ -146,16 +110,7 @@ impl Painter {
             egui::Shape::CubicBezier(_) => todo!(),
         };
 
-        //match shape.1 {
-        //    epaint::Shape::Circle(s) => println!("\tdirty: {:?}, shape.Circle: {:?}", dirty, ur),
-        //    epaint::Shape::Rect(s) =>  println!("\tdirty: {:?}, shape.Rect: {:?}", dirty, ur),
-        //    _ => {}
-        //}
-
         ur.and_then(|rect| if dirty { Some(rect) } else { None })
-
-
-
     }
 
     
@@ -166,55 +121,11 @@ impl Painter {
         textures_delta: &egui::TexturesDelta,
         font: &iv::Font<'f>
     ) {
-
-        for (_, image_delta) in &textures_delta.set {
-            let p = &image_delta.pos;
-
-            let s = match &image_delta.image {
-                egui::ImageData::Color(image) => {
-
-                    //depth = 32
-                    //println!("\tcolor image: {:?}", image.size);
-                    [image.width(), image.height()]
-                },
-                egui::ImageData::Alpha(image) => {
-                    //println!("\talpha image: {:?}", image.size);
-                    [image.width(), image.height()]
-
-/*
-                    let unwraped_pos = image_delta.pos.unwrap_or([0, 0]);
-
-                    let end_pos = [
-                        canvas.width.min(image.width() + unwraped_pos[0]),
-                        canvas.height.min(image.height() + unwraped_pos[1]),
-                    ];
-
-                    println!("before {}, {}, {}, {}",unwraped_pos[0], unwraped_pos[1], end_pos[0] - unwraped_pos[0], end_pos[1] - unwraped_pos[1]);
-                    for y in unwraped_pos[1]..end_pos[1] {
-                        for x in unwraped_pos[0]..end_pos[0] {
-                        let uu = image.pixels[x + y * image.width()];
-                            canvas.pixels[x + y * canvas.width] = uu;
-
-                        }
-                    }
-                    println!("after {}, {}, {}, {}",unwraped_pos[0], unwraped_pos[1], end_pos[0] - unwraped_pos[0], end_pos[1] - unwraped_pos[1]);
-
-                    inkview::dynamic_update(
-                        inkview::DynamicUpdateType::Normal(inkview::update_type::Normal), 
-                        unwraped_pos[0], 
-                        unwraped_pos[1], 
-                        end_pos[0] - unwraped_pos[0], 
-                        end_pos[1] - unwraped_pos[1]
-                    );
-
-                    [image.width(), image.height()]
-                     */
-                },
+        for (_, image_delta) in &textures_delta.set {            
+            match &image_delta.image {
+                egui::ImageData::Color(_) => {},
+                egui::ImageData::Alpha(_) => {},
             };
-
-            
-            
-
         }
 
         println!("PAINT");
@@ -230,37 +141,42 @@ impl Painter {
 
             let paint_shapes_start = Instant::now();
 
-            let update_rects: Vec<_> = dirty_shapes.into_iter()
+            let update_rects: Vec<_> = dirty_shapes
+                .into_iter()
                 .map(|s| Self::paint_shape(draw, s.0, s.1, self.pixels_per_point, font))
-                .filter_map(identity).collect();
+                .filter_map(identity)
+                .collect();
 
             println!("\tpaint shapes duration: {:?}", Instant::now() - paint_shapes_start);
 
             //println!("UPDATE LAST DIRTY RECTS");
 
-            for rect in &self.last_frame_update_rects {
-                //println!("\tlfur: {:?}", rect);
-                iv::dynamic_update(update_type.into(), *rect);
-            }
+            let updating_prev_start = Instant::now();
 
-            //println!("UPDATE CURRENT DIRTY RECTS");
 
-            self.last_frame_update_rects = update_rects.into_iter().map(|rect| {
+            let actualy_updated_count = update_rects
+                .clone()
+                .into_iter()
+                .chain(self.last_frame_update_rects.clone().into_iter())
+                .unique()
+                .map(|rect|{
                 iv::dynamic_update(update_type.into(), rect);
-                rect
-            }).collect();
+            }).count();
+
+            println!(
+                "\tupdating screen duration: {:?} (count: {} merge {} = {})", 
+                Instant::now() - updating_prev_start, 
+                self.last_frame_update_rects.len(),
+                update_rects.len(),
+                actualy_updated_count
+            );
+
+            self.last_frame_update_rects = update_rects;
 
             self.last_frame_clipped_shapes = clipped_shapes;
 
         }
-
         println!("\tpainting duration: {:?}", Instant::now() - painting_start)
-
-        //self.paint_meshes(gl, inner_size, pixels_per_point, clipped_meshes);
-
-        //for &id in &textures_delta.free {
-        //    self.free_texture(gl, id);
-        //}
     }
 }
 
@@ -270,25 +186,6 @@ impl Drop for Painter {
             panic!(
                 "You forgot to call destroy() on the egui glow painter. Resources will leak!"
             );
-        }
-    }
-}
-
-#[cfg(feature = "epi")]
-impl epi::NativeTexture for Painter {
-    type Texture = glow::Texture;
-
-    fn register_native_texture(&mut self, native: Self::Texture) -> egui::TextureId {
-        self.assert_not_destroyed();
-        let id = egui::TextureId::User(self.next_native_tex_id);
-        self.next_native_tex_id += 1;
-        self.textures.insert(id, native);
-        id
-    }
-
-    fn replace_native_texture(&mut self, id: egui::TextureId, replacing: Self::Texture) {
-        if let Some(old_tex) = self.textures.insert(id, replacing) {
-            self.textures_to_destroy.push(old_tex);
         }
     }
 }
