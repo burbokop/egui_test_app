@@ -24,7 +24,7 @@ fn run<A: epi::App>(app: Box<A>, native_options: epi::NativeOptions) -> ! {
 
 #[cfg(feature = "default")]
 fn run<A: epi::App>(app: Box<A>, native_options: epi::NativeOptions) {
-    egui_app::iv_platform::run_native(app, native_options);
+    egui_app::iv_platform::run_threaded(app, native_options);
 }
 
 fn main() {

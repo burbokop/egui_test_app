@@ -679,3 +679,19 @@ pub fn draw_text_rect(rect: Rect, s: &str, flags: i32) -> (Rect, &CStr) {
         (rect, CStr::from_ptr(c_iv::DrawTextRect(rect.pos.x, rect.pos.y, rect.size.x as c_int, rect.size.y as c_int, s.as_ptr() as *const c_char, flags)))
     }    
 }
+
+
+pub fn pixels_per_point32() -> Result<f32, Error> {
+    get_screen_scale_factor().and_then(|sf| get_screen_dpi().map(|dpi| sf as f32 * dpi as f32 / 160.))
+}
+
+pub fn pixels_per_point64() -> Result<f64, Error> {
+    get_screen_scale_factor().and_then(|sf| get_screen_dpi().map(|dpi| sf * dpi as f64 / 160.))
+}
+
+pub fn dp_to_pix32(v: f32) -> Result<f32, Error> {
+    pixels_per_point32().map(|ppp| ppp * v)
+}
+pub fn dp_to_pix64(v: f64) -> Result<f64, Error> {
+    pixels_per_point64().map(|ppp| ppp * v)
+}
